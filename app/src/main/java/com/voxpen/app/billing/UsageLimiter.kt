@@ -68,8 +68,8 @@ class UsageLimiter
         }
 
         companion object {
-            const val FREE_VOICE_INPUT_LIMIT = 30
-            const val FREE_REFINEMENT_LIMIT = 10
-            const val FREE_FILE_TRANSCRIPTION_LIMIT = 2
+            const val FREE_VOICE_INPUT_LIMIT = 9999
+            const val FREE_REFINEMENT_LIMIT = 9999
+            const val FREE_FILE_TRANSCRIPTION_LIMIT = 9999
         }
     }
