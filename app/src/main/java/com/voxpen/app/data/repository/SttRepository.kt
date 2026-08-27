@@ -4,15 +4,15 @@ import com.voxpen.app.data.model.SttLanguage
 import com.voxpen.app.data.model.SttProvider
 import com.voxpen.app.data.remote.SttApi
 import com.voxpen.app.data.remote.SttApiFactory
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
-import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 import timber.log.Timber
 
 @Singleton
@@ -31,13 +31,13 @@ class SttRepository
             customSttBaseUrl: String? = null,
         ): Result<TranscriptionResult> {
             if (apiKey.isBlank() && provider != SttProvider.Custom) {
-                return Result.failure(IllegalStateException("API key not configured"))
+                return Result.failure(IllegalStateException("STT API key is not configured."))
             }
 
             val api =
                 if (provider == SttProvider.Custom) {
                     if (customSttBaseUrl.isNullOrBlank()) {
-                        return Result.failure(IllegalStateException("Custom STT base URL not configured"))
+                        return Result.failure(IllegalStateException("Custom STT base URL is not configured."))
                     }
                     sttApiFactory.createForCustom(customSttBaseUrl)
                 } else {
@@ -82,14 +82,21 @@ class SttRepository
                 } catch (e: Exception) {
                     val lastAttempt = attempt == MAX_ATTEMPTS - 1
                     val retryable = isRetryable(e)
-                    logAttemptFailure(e, provider, model, attempt + 1, wavBytes.size, retryable && !lastAttempt)
+                    logAttemptFailure(
+                        error = e,
+                        provider = provider,
+                        model = model,
+                        attempt = attempt + 1,
+                        bytes = wavBytes.size,
+                        willRetry = retryable && !lastAttempt,
+                    )
                     if (lastAttempt || !retryable) {
                         return Result.failure(normalizeError(e, provider))
                     }
-                    delay(retryDelayMillis(e))
+                    delay(retryDelayMillis(e, attempt))
                 }
             }
-            return Result.failure(IllegalStateException("Transcription failed"))
+            return Result.failure(IOException("${provider.displayName} STT failed after $MAX_ATTEMPTS attempts."))
         }
 
         private suspend fun executeTranscription(
@@ -101,28 +108,29 @@ class SttRepository
             vocabularyHint: String?,
             provider: SttProvider,
         ): TranscriptionResult {
-                val filePart =
-                    MultipartBody.Part.createFormData(
-                        "file",
-                        "recording.wav",
-                        wavBytes.toRequestBody("audio/wav".toMediaType()),
-                    )
-                val modelBody = model.toRequestBody(TEXT_PLAIN)
+            val filePart =
+                MultipartBody.Part.createFormData(
+                    "file",
+                    "recording.wav",
+                    wavBytes.toRequestBody("audio/wav".toMediaType()),
+                )
+            val modelBody = model.toRequestBody(TEXT_PLAIN)
             val format = responseFormatFor(provider, model).toRequestBody(TEXT_PLAIN)
-                val langBody = language.code?.toRequestBody(TEXT_PLAIN)
-                val promptBody = (vocabularyHint ?: language.prompt).toRequestBody(TEXT_PLAIN)
+            val langBody = language.code?.toRequestBody(TEXT_PLAIN)
+            val promptBody = (vocabularyHint ?: language.prompt).toRequestBody(TEXT_PLAIN)
 
-                val response =
-                    api.transcribe(
-                        authorization = "Bearer $apiKey",
-                        file = filePart,
-                        model = modelBody,
-                        responseFormat = format,
-                        language = langBody,
-                        prompt = promptBody,
-                    )
+            val response =
+                api.transcribe(
+                    authorization = "Bearer $apiKey",
+                    file = filePart,
+                    model = modelBody,
+                    responseFormat = format,
+                    language = langBody,
+                    prompt = promptBody,
+                )
 
-            val segments = response.segments?.map { seg ->
+            val segments =
+                response.segments?.map { seg ->
                     TranscriptionSegment(
                         startMs = (seg.start * 1000).toLong(),
                         endMs = (seg.end * 1000).toLong(),
@@ -149,17 +157,22 @@ class SttRepository
                 else -> false
             }
 
-        private fun retryDelayMillis(error: Exception): Long {
+        private fun retryDelayMillis(
+            error: Exception,
+            attempt: Int,
+        ): Long {
             val retryAfterSeconds =
                 (error as? HttpException)
                     ?.response()
                     ?.headers()
                     ?.get("Retry-After")
                     ?.toLongOrNull()
-            return retryAfterSeconds
-                ?.times(1000)
-                ?.coerceAtMost(MAX_RETRY_DELAY_MILLIS)
-                ?: DEFAULT_RETRY_DELAY_MILLIS
+
+            if (retryAfterSeconds != null) {
+                return retryAfterSeconds.times(1000).coerceAtMost(MAX_RETRY_DELAY_MILLIS)
+            }
+
+            return (DEFAULT_RETRY_DELAY_MILLIS shl attempt).coerceAtMost(MAX_RETRY_DELAY_MILLIS)
         }
 
         private fun normalizeError(
@@ -169,10 +182,21 @@ class SttRepository
             val message =
                 when (error) {
                     is HttpException -> {
-                        val body = error.response()?.errorBody()?.string()?.take(MAX_ERROR_CHARS)
-                        "${provider.displayName} STT failed (${error.code()}): ${body ?: error.message()}"
+                        val code = error.code()
+                        val detail = error.response()?.errorBody()?.string()?.take(MAX_ERROR_CHARS)
+                        when (code) {
+                            400 -> "${provider.displayName} STT rejected the request (400). Check the selected model and audio format."
+                            401, 403 -> "${provider.displayName} STT authentication failed ($code). Check the API key."
+                            404 -> "${provider.displayName} STT model or endpoint was not found (404)."
+                            429 -> "${provider.displayName} STT rate limit reached (429). Automatic retries were exhausted; try again shortly."
+                            in 500..599 -> "${provider.displayName} STT service is temporarily unavailable ($code). Automatic retries were exhausted."
+                            else -> "${provider.displayName} STT failed ($code): ${detail ?: error.message()}"
+                        }
                     }
-                    else -> "${provider.displayName} STT failed: ${error.message ?: error::class.java.simpleName}"
+                    is IOException ->
+                        "${provider.displayName} STT network error after automatic retries: ${error.message ?: "connection failed"}"
+                    else ->
+                        "${provider.displayName} STT failed: ${error.message ?: error::class.java.simpleName}"
                 }
             return IOException(message, error)
         }
@@ -200,9 +224,9 @@ class SttRepository
 
         companion object {
             private const val RESPONSE_FORMAT_VERBOSE_JSON = "verbose_json"
-            private const val MAX_ATTEMPTS = 2
-            private const val DEFAULT_RETRY_DELAY_MILLIS = 0L
-            private const val MAX_RETRY_DELAY_MILLIS = 3_000L
+            private const val MAX_ATTEMPTS = 3
+            private const val DEFAULT_RETRY_DELAY_MILLIS = 1_000L
+            private const val MAX_RETRY_DELAY_MILLIS = 10_000L
             private const val MAX_ERROR_CHARS = 500
             private val TEXT_PLAIN = "text/plain".toMediaType()
         }
