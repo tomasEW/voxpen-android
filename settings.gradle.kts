@@ -18,8 +18,9 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
 
-        maven {
+       maven {
             url = uri("https://jcenter.bintray.com/")
+        }
     }
 }
 
