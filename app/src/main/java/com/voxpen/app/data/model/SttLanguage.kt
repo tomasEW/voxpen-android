@@ -7,13 +7,13 @@ sealed class SttLanguage(
 ) {
     data object Auto : SttLanguage(
         code = null,
-        prompt = "繁體中文，可能夾雜英文。",
+        prompt = "Auto-detect the spoken language. When the speech is Chinese, transcribe it in Simplified Chinese using natural Mainland Mandarin wording. English terms may be mixed in and should be preserved.",
         emoji = "\uD83C\uDF10",
     )
 
     data object Chinese : SttLanguage(
         code = "zh",
-        prompt = "繁體中文轉錄。",
+        prompt = "Transcribe the Chinese speech in Simplified Chinese using natural Mainland Mandarin wording.",
         emoji = "\uD83C\uDDF9\uD83C\uDDFC",
     )
 
