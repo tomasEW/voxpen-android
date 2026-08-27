@@ -12,6 +12,15 @@ sealed class LlmProvider(
     val baseUrl: String,
     val models: List<LlmModelOption>,
 ) {
+    val displayName: String
+        get() =
+            when (this) {
+                Groq -> "Groq"
+                OpenAI -> "OpenAI"
+                OpenRouter -> "OpenRouter"
+                Custom -> "Custom"
+            }
+
     val defaultModelId: String
         get() = models.firstOrNull { it.isDefault }?.id ?: models.firstOrNull()?.id ?: ""
 
