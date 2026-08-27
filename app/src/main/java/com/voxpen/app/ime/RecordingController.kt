@@ -193,7 +193,15 @@ class RecordingController(
                     _uiState.value =
                         refinedResult.fold(
                             onSuccess = { ImeUiState.Refined(originalText, it) },
-                            onFailure = { ImeUiState.Result(originalText) },
+                            onFailure = { error ->
+                                Timber.w(
+                                    error,
+                                    "refinement_failed provider=%s model=%s; falling back to original transcription",
+                                    llmProvider.key,
+                                    resolvedModel,
+                                )
+                                ImeUiState.Result(originalText)
+                            },
                         )
                 },
                 onFailure = {
