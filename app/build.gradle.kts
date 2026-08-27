@@ -81,6 +81,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.activity.compose)
 
+    // OpenCC - Traditional Chinese -> Simplified Chinese
+    implementation("com.zqc.opencc.android.lib:lib-opencc-android:1.1.0")
+
     // Compose
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
