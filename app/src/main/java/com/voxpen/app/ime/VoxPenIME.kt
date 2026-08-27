@@ -26,6 +26,7 @@ import com.voxpen.app.data.model.ToneStyle
 import com.voxpen.app.data.model.VoiceCommand
 import com.voxpen.app.domain.usecase.EditTextUseCase
 import com.voxpen.app.ui.MainActivity
+import com.voxpen.app.util.ChineseTextNormalizer
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
