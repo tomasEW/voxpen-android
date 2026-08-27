@@ -434,82 +434,133 @@ class VoxPenIME : InputMethodService() {
         copyRefinedButton?.visibility = View.GONE
     }
 
-    private fun updateCandidateBar(state: ImeUiState) {
-        when (state) {
-            ImeUiState.Idle -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                if (translationEnabled) {
-                    candidateBar?.visibility = View.VISIBLE
-                    candidateStatusRow?.visibility = View.GONE
-                    candidateOriginal?.visibility = View.GONE
-                    candidateRefinedRow?.visibility = View.GONE
-                } else if (!isEditMode) {
-                    candidateBar?.visibility = View.GONE
-                }
+private fun updateCandidateBar(state: ImeUiState) {
+    when (state) {
+        ImeUiState.Idle -> {
+            timerHandler.removeCallbacks(timerRunnable)
+            if (translationEnabled) {
+                candidateBar?.visibility = View.VISIBLE
+                candidateStatusRow?.visibility = View.GONE
+                candidateOriginal?.visibility = View.GONE
+                candidateRefinedRow?.visibility = View.GONE
+            } else if (!isEditMode) {
+                candidateBar?.visibility = View.GONE
             }
-            ImeUiState.Recording -> {
-                showStatusRow(getString(R.string.recording), showProgress = false)
-                recordingStartTime = System.currentTimeMillis()
-                timerHandler.post(timerRunnable)
-            }
-            ImeUiState.Processing -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                showStatusRow(getString(R.string.processing), showProgress = true)
-            }
-            is ImeUiState.Result -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                showStatusRow(state.text, showProgress = false)
-                candidateBar?.setOnClickListener {
-                    currentInputConnection?.commitText(state.text, 1)
-                    recordingController.dismiss()
-                }
-                copyStatusButton?.visibility = View.VISIBLE
-                copyStatusButton?.setOnClickListener { copyToClipboard(state.text) }
-            }
-            is ImeUiState.Refining -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                showDualRows(state.original, null)
-            }
-            is ImeUiState.Refined -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                showDualRows(state.original, state.refined)
-                candidateOriginal?.setOnClickListener {
-                    currentInputConnection?.commitText(state.original, 1)
-                    recordingController.dismiss()
-                }
-                candidateRefinedRow?.setOnClickListener {
-                    currentInputConnection?.commitText(state.refined, 1)
-                    recordingController.dismiss()
-                }
-                copyRefinedButton?.visibility = View.VISIBLE
-                copyRefinedButton?.setOnClickListener { copyToClipboard(state.refined) }
-            }
-            is ImeUiState.Error -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                showStatusRow(state.message, showProgress = false)
-                candidateBar?.setOnClickListener { recordingController.dismiss() }
-            }
-            is ImeUiState.CommandDetected -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                executeVoiceCommand(state.command)
+        }
+
+        ImeUiState.Recording -> {
+            showStatusRow(getString(R.string.recording), showProgress = false)
+            recordingStartTime = System.currentTimeMillis()
+            timerHandler.post(timerRunnable)
+        }
+
+        ImeUiState.Processing -> {
+            timerHandler.removeCallbacks(timerRunnable)
+            showStatusRow(getString(R.string.processing), showProgress = true)
+        }
+
+        is ImeUiState.Result -> {
+            timerHandler.removeCallbacks(timerRunnable)
+
+            val finalText = normalizeOutputText(state.text)
+
+            showStatusRow(finalText, showProgress = false)
+
+            candidateBar?.setOnClickListener {
+                currentInputConnection?.commitText(finalText, 1)
                 recordingController.dismiss()
             }
-            is ImeUiState.EditInstruction -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                showStatusRow(getString(R.string.editing_text), showProgress = true)
-                performEditWithLlm(state.instruction)
+
+            copyStatusButton?.visibility = View.VISIBLE
+            copyStatusButton?.setOnClickListener {
+                copyToClipboard(finalText)
             }
-            ImeUiState.Editing -> {
-                // Spinner already visible from EditInstruction handler
+        }
+
+        is ImeUiState.Refining -> {
+            timerHandler.removeCallbacks(timerRunnable)
+
+            val originalText = normalizeOutputText(state.original)
+            showDualRows(originalText, null)
+        }
+
+        is ImeUiState.Refined -> {
+            timerHandler.removeCallbacks(timerRunnable)
+
+            val originalText = normalizeOutputText(state.original)
+            val refinedText = normalizeOutputText(state.refined)
+
+            showDualRows(originalText, refinedText)
+
+            candidateOriginal?.setOnClickListener {
+                currentInputConnection?.commitText(originalText, 1)
+                recordingController.dismiss()
             }
-            is ImeUiState.EditResult -> {
-                timerHandler.removeCallbacks(timerRunnable)
-                currentInputConnection?.commitText(state.revised, 1)
-                isEditMode = false
+
+            candidateRefinedRow?.setOnClickListener {
+                currentInputConnection?.commitText(refinedText, 1)
+                recordingController.dismiss()
+            }
+
+            copyRefinedButton?.visibility = View.VISIBLE
+            copyRefinedButton?.setOnClickListener {
+                copyToClipboard(refinedText)
+            }
+        }
+
+        is ImeUiState.Error -> {
+            timerHandler.removeCallbacks(timerRunnable)
+            showStatusRow(state.message, showProgress = false)
+            candidateBar?.setOnClickListener {
                 recordingController.dismiss()
             }
         }
+
+        is ImeUiState.CommandDetected -> {
+            timerHandler.removeCallbacks(timerRunnable)
+            executeVoiceCommand(state.command)
+            recordingController.dismiss()
+        }
+
+        is ImeUiState.EditInstruction -> {
+            timerHandler.removeCallbacks(timerRunnable)
+            showStatusRow(getString(R.string.editing_text), showProgress = true)
+            performEditWithLlm(state.instruction)
+        }
+
+        ImeUiState.Editing -> {
+            // Spinner already visible from EditInstruction handler
+        }
+
+        is ImeUiState.EditResult -> {
+            timerHandler.removeCallbacks(timerRunnable)
+
+            val finalText = normalizeOutputText(state.revised)
+
+            currentInputConnection?.commitText(finalText, 1)
+            isEditMode = false
+            recordingController.dismiss()
+        }
     }
+}
+
+private fun normalizeOutputText(text: String): String {
+    val shouldConvertToMainlandSimplified =
+        if (translationEnabled) {
+            translationTargetLanguage == SttLanguage.Chinese
+        } else {
+            currentSttLanguage == SttLanguage.Chinese
+        }
+
+    return if (shouldConvertToMainlandSimplified) {
+        ChineseTextNormalizer.toMainlandSimplified(
+            text = text,
+            context = applicationContext,
+        )
+    } else {
+        text
+    }
+}
 
     private fun updateMicAppearance(state: ImeUiState) {
         if (state == ImeUiState.Recording) {
