@@ -48,12 +48,35 @@ class TranscribeAudioUseCase
                     onFailure = { return Result.failure(it) },
                 )
             }
-            return Result.success(textChunks.filter { it.isNotBlank() }.joinToString(" "))
+            val joined = textChunks.filter { it.isNotBlank() }.joinToString(" ")
+            return Result.success(collapseObviousAdjacentDuplicates(joined))
+        }
+
+        /**
+         * Removes only obvious ASR duplication: an immediately repeated phrase of at least eight
+         * characters. Short repetitions are intentionally left alone because they can be natural
+         * emphasis (for example, "真的真的" or "哈哈哈哈").
+         */
+        internal fun collapseObviousAdjacentDuplicates(text: String): String {
+            var cleaned = text
+            var previous: String
+            do {
+                previous = cleaned
+                cleaned =
+                    ADJACENT_DUPLICATE_REGEX.replace(cleaned) { match ->
+                        val phrase = match.groupValues[1]
+                        if (phrase.toSet().size <= 1) match.value else phrase
+                    }
+            } while (cleaned != previous)
+            return cleaned.trim()
         }
 
         companion object {
             const val SAMPLE_RATE = 16000
             const val CHANNELS = 1
             const val BITS_PER_SAMPLE = 16
+
+            private val ADJACENT_DUPLICATE_REGEX =
+                Regex("(?s)(.{8,120}?)(?:\\s*\\1)+")
         }
     }
