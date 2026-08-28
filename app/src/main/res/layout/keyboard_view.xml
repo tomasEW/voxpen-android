@@ -13,6 +13,7 @@
         android:layout_width="match_parent"
         android:layout_height="128dp"
         android:orientation="vertical"
+        android:gravity="bottom"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
         android:paddingTop="4dp"
@@ -90,7 +91,7 @@
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Original STT result row (always shown while refining and after refinement) -->
+        <!-- Original STT result row: shown above refined row -->
         <TextView
             android:id="@+id/candidate_original"
             android:layout_width="match_parent"
@@ -109,11 +110,11 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#33000000"
+            android:background="#33FFFFFF"
             android:layout_marginStart="6dp"
             android:layout_marginEnd="6dp" />
 
-        <!-- Refined text row (tappable) -->
+        <!-- Refined text row: shown below original and tapped to commit refined text -->
         <LinearLayout
             android:id="@+id/candidate_refined_row"
             android:layout_width="match_parent"
