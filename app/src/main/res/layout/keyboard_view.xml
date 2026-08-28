@@ -11,9 +11,9 @@
     <LinearLayout
         android:id="@+id/candidate_bar"
         android:layout_width="match_parent"
-        android:layout_height="128dp"
+        android:layout_height="64dp"
         android:orientation="vertical"
-        android:gravity="bottom"
+        android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
         android:paddingTop="4dp"
@@ -91,35 +91,19 @@
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Original STT result row: shown above refined row -->
+        <!-- Kept for compatibility; no longer shown in normal refinement flow -->
         <TextView
             android:id="@+id/candidate_original"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="38dp"
-            android:gravity="center_vertical"
-            android:padding="6dp"
-            android:textColor="@color/key_text"
-            android:textSize="14sp"
-            android:ellipsize="end"
-            android:maxLines="2"
-            android:background="?android:attr/selectableItemBackground"
             android:visibility="gone" />
 
-        <!-- Divider between original and refined -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#33FFFFFF"
-            android:layout_marginStart="6dp"
-            android:layout_marginEnd="6dp" />
-
-        <!-- Refined text row: shown below original and tapped to commit refined text -->
+        <!-- Refined text row (tappable to commit refined text) -->
         <LinearLayout
             android:id="@+id/candidate_refined_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="40dp"
+            android:minHeight="48dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:padding="6dp"
