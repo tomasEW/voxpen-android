@@ -29,16 +29,16 @@ jobs:
             echo "VOXPEN_DEBUG_KEYSTORE_BASE64 repository secret is not configured." >&2
             exit 1
           fi
-          mkdir -p "$HOME/.android"
+          mkdir -p .ci
           printf '%s' "$VOXPEN_DEBUG_KEYSTORE_BASE64" \
-            | base64 --decode > "$HOME/.android/debug.keystore"
-          chmod 600 "$HOME/.android/debug.keystore"
+            | base64 --decode > .ci/voxpen-debug.keystore
+          chmod 600 .ci/voxpen-debug.keystore
           keytool -list \
-            -keystore "$HOME/.android/debug.keystore" \
+            -keystore .ci/voxpen-debug.keystore \
             -storepass android \
             -alias androiddebugkey \
             >/dev/null
-          echo "Fixed debug keystore restored; alias androiddebugkey verified."
+          echo "Fixed debug keystore restored and verified."
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
@@ -46,10 +46,10 @@ jobs:
       - name: Rename APK
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk \
-             app/build/outputs/apk/debug/voxpen-v1.2.4-build-${GITHUB_RUN_NUMBER}.apk
+             app/build/outputs/apk/debug/voxpen-v1.2.5-build-${GITHUB_RUN_NUMBER}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: voxpen-v1.2.4-build-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/voxpen-v1.2.4-build-${{ github.run_number }}.apk
+          name: voxpen-v1.2.5-build-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/voxpen-v1.2.5-build-${{ github.run_number }}.apk
