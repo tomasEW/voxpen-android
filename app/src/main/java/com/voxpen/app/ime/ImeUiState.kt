@@ -15,8 +15,6 @@ sealed interface ImeUiState {
 
     data class Refined(val original: String, val refined: String) : ImeUiState
 
-    data class RefineFailed(val original: String, val message: String) : ImeUiState
-
     data class Error(val message: String) : ImeUiState
 
     /** A voice command was recognised — execute the keyboard action instead of inserting text. */
