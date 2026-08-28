@@ -186,7 +186,8 @@ class SttRepository
                         val detail = error.response()?.errorBody()?.string()?.take(MAX_ERROR_CHARS)
                         when (code) {
                             400 -> "${provider.displayName} STT rejected the request (400). Check the selected model and audio format."
-                            401, 403 -> "${provider.displayName} STT authentication failed ($code). Check the API key."
+                            401 -> "${provider.displayName} STT authentication failed (401). Check the API key."
+                            403 -> "${provider.displayName} STT request forbidden (403): ${detail ?: error.message()}"
                             404 -> "${provider.displayName} STT model or endpoint was not found (404)."
                             429 -> "${provider.displayName} STT rate limit reached (429). Automatic retries were exhausted; try again shortly."
                             in 500..599 -> "${provider.displayName} STT service is temporarily unavailable ($code). Automatic retries were exhausted."
