@@ -90,15 +90,16 @@
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Original text row (tappable) -->
+        <!-- Original STT result row (always shown while refining and after refinement) -->
         <TextView
             android:id="@+id/candidate_original"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="38dp"
+            android:gravity="center_vertical"
             android:padding="6dp"
-            android:textColor="#9E9E9E"
-            android:textSize="13sp"
-            android:drawablePadding="6dp"
+            android:textColor="@color/key_text"
+            android:textSize="14sp"
             android:ellipsize="end"
             android:maxLines="2"
             android:background="?android:attr/selectableItemBackground"
@@ -108,7 +109,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#33FFFFFF"
+            android:background="#33000000"
             android:layout_marginStart="6dp"
             android:layout_marginEnd="6dp" />
 
@@ -117,6 +118,7 @@
             android:id="@+id/candidate_refined_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="40dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:padding="6dp"
