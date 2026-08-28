@@ -17,6 +17,8 @@ val keystoreProperties = Properties()
 val keystoreFile = rootProject.file("keystore.properties")
 if (keystoreFile.exists()) keystoreProperties.load(FileInputStream(keystoreFile))
 
+val ciDebugKeystore = rootProject.file(".ci/voxpen-debug.keystore")
+
 android {
     namespace = "com.voxpen.app"
     compileSdk = 35
@@ -25,13 +27,20 @@ android {
         applicationId = "com.voxpen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.2.4"
+        versionCode = 10
+        versionName = "1.2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
+        getByName("debug") {
+            storeFile = ciDebugKeystore
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+
         create("release") {
             storeFile = file(keystoreProperties["storeFile"] as? String ?: "placeholder.keystore")
             storePassword = keystoreProperties["storePassword"] as? String ?: ""
@@ -41,6 +50,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
+
         release {
             isMinifyEnabled = true
             isShrinkResources = true
