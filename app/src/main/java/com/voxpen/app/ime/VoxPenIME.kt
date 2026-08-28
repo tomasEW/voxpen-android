@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -78,25 +79,18 @@ class VoxPenIME : InputMethodService() {
     private var previousUiState: ImeUiState = ImeUiState.Idle
     private var recordingStartTime: Long = 0
     private val timerHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val timerRunnable =
-        object : Runnable {
-            override fun run() {
-                val elapsed = (System.currentTimeMillis() - recordingStartTime) / 1000
-                if (elapsed >= MAX_RECORDING_SECONDS) {
-                    stopRecording()
-                    return
-                }
-                val remaining = MAX_RECORDING_SECONDS - elapsed
-                val minutes = elapsed / 60
-                val seconds = elapsed % 60
-                candidateText?.text = if (remaining <= 30) {
-                    "⚠️ ${getString(R.string.recording)} – 0:%02d".format(remaining)
-                } else {
-                    getString(R.string.recording) + " $minutes:%02d".format(seconds)
-                }
-                timerHandler.postDelayed(this, 1000)
-            }
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            val elapsed = (System.currentTimeMillis() - recordingStartTime) / 1000
+            if (elapsed >= MAX_RECORDING_SECONDS) { stopRecording(); return }
+            val remaining = MAX_RECORDING_SECONDS - elapsed
+            val minutes = elapsed / 60
+            val seconds = elapsed % 60
+            candidateText?.text = if (remaining <= 30) "⚠️ ${getString(R.string.recording)} – 0:%02d".format(remaining)
+            else getString(R.string.recording) + " $minutes:%02d".format(seconds)
+            timerHandler.postDelayed(this, 1000)
         }
+    }
 
     override fun onCreateInputView(): View {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, VoxPenIMEEntryPoint::class.java)
@@ -121,7 +115,8 @@ class VoxPenIME : InputMethodService() {
         )
         actionHandler = KeyboardActionHandler(
             onSendKeyEvent = { keyCode -> sendDownUpKeyEvents(keyCode) },
-            onSwitchKeyboard = { switchToPreviousInputMethod() }, onOpenSettings = { launchSettings() }, onMicTap = { handleMicTap() },
+            onSwitchKeyboard = { switchKeyboardOrShowPicker() },
+            onOpenSettings = { launchSettings() }, onMicTap = { handleMicTap() },
         )
         val view = layoutInflater.inflate(R.layout.keyboard_view, null)
         bindViews(view); bindButtons(view); observeUiState()
@@ -132,7 +127,6 @@ class VoxPenIME : InputMethodService() {
         serviceScope.launch { preferencesManager.translationEnabledFlow.collect { translationEnabled = it; updateTranslationIndicator() } }
         serviceScope.launch { preferencesManager.translationTargetLanguageFlow.collect { translationTargetLanguage = it; updateTranslationIndicator() } }
         serviceScope.launch { preferencesManager.languageFlow.collect { currentSttLanguage = it; updateTranslationIndicator() } }
-        Timber.d("VoxPenIME input view created")
         return view
     }
 
@@ -150,11 +144,24 @@ class VoxPenIME : InputMethodService() {
     private fun bindButtons(view: View) {
         view.findViewById<ImageButton>(R.id.btn_backspace)?.setOnClickListener { actionHandler.handle(KeyboardAction.Backspace) }
         view.findViewById<ImageButton>(R.id.btn_enter)?.setOnClickListener { actionHandler.handle(KeyboardAction.Enter) }
-        view.findViewById<ImageButton>(R.id.btn_switch)?.let { b -> b.setOnClickListener { actionHandler.handle(KeyboardAction.SwitchKeyboard) }; b.setOnLongClickListener { getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showInputMethodPicker(); true } }
+        view.findViewById<ImageButton>(R.id.btn_switch)?.let { b ->
+            b.setOnClickListener { actionHandler.handle(KeyboardAction.SwitchKeyboard) }
+            b.setOnLongClickListener { showInputMethodPicker(); true }
+        }
         view.findViewById<ImageButton>(R.id.btn_settings)?.let { b -> b.setOnClickListener { actionHandler.handle(KeyboardAction.OpenSettings) }; b.setOnLongClickListener { showQuickSettings(it); true } }
         setupMicButton(view.findViewById(R.id.btn_mic)); view.findViewById<TextView>(R.id.btn_tone)?.setOnClickListener { showTonePopup(it) }
         view.findViewById<TextView>(R.id.translation_label)?.setOnClickListener { cycleTranslationTarget() }
         view.findViewById<ImageButton>(R.id.btn_translation_close)?.setOnClickListener { serviceScope.launch { preferencesManager.setTranslationEnabled(false) } }
+    }
+
+    private fun switchKeyboardOrShowPicker(): Boolean {
+        val switched = switchToPreviousInputMethod()
+        if (!switched) showInputMethodPicker()
+        return switched
+    }
+
+    private fun showInputMethodPicker() {
+        getSystemService(InputMethodManager::class.java)?.showInputMethodPicker()
     }
 
     @Suppress("ClickableViewAccessibility")
@@ -178,7 +185,7 @@ class VoxPenIME : InputMethodService() {
         ImeUiState.Idle->{timerHandler.removeCallbacks(timerRunnable);if(translationEnabled){candidateBar?.visibility=View.VISIBLE;candidateStatusRow?.visibility=View.GONE;candidateOriginal?.visibility=View.GONE;candidateRefinedRow?.visibility=View.GONE}else if(!isEditMode)candidateBar?.visibility=View.GONE}
         ImeUiState.Recording->{showStatusRow(getString(R.string.recording),false);recordingStartTime=System.currentTimeMillis();timerHandler.post(timerRunnable)}
         ImeUiState.Processing->{timerHandler.removeCallbacks(timerRunnable);showStatusRow(getString(R.string.processing),true)}
-        is ImeUiState.Result->{timerHandler.removeCallbacks(timerRunnable);val t=normalizeOutputText(state.text);showStatusRow(t,false);candidateBar?.setOnClickListener{currentInputConnection?.commitText(t,1);recordingController.dismiss()};copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(t)}}
+        is ImeUiState.Result->{timerHandler.removeCallbacks(timerRunnable);val t=normalizeOutputText(state.text);showStatusRow(t,false);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(t)}}
         is ImeUiState.Refining->{timerHandler.removeCallbacks(timerRunnable);val t=normalizeOutputText(state.original);showStatusRow(t,true);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(t)}}
         is ImeUiState.Refined->{timerHandler.removeCallbacks(timerRunnable);val o=normalizeOutputText(state.original);val r=normalizeOutputText(state.refined);showStatusRow(o,false);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(o)};currentInputConnection?.commitText(r,1)}
         is ImeUiState.Error->{timerHandler.removeCallbacks(timerRunnable);showStatusRow(state.message,false);candidateBar?.setOnClickListener{recordingController.dismiss()}}
@@ -204,7 +211,7 @@ class VoxPenIME : InputMethodService() {
     private fun createQuickSettingsContainer(dp:Float)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(resources.getColor(R.color.key_background,null));val q=(12*dp).toInt();setPadding(q,q,q,q)}
     private fun addRefinementToggle(c:LinearLayout,p:PopupWindow,on:Boolean,dp:Float){c.addView(TextView(this).apply{text=if(on)getString(R.string.quick_refinement_on)else getString(R.string.quick_refinement_off);textSize=14f;setTextColor(resources.getColor(R.color.key_text,null));val q=(8*dp).toInt();setPadding(q,q,q,q);setOnClickListener{serviceScope.launch{preferencesManager.setRefinementEnabled(!on)};p.dismiss()}})}
     private fun addTranslationToggle(c:LinearLayout,p:PopupWindow,on:Boolean,dp:Float){c.addView(TextView(this).apply{text=if(on)getString(R.string.quick_translation_on)else getString(R.string.quick_translation_off);textSize=14f;setTextColor(resources.getColor(R.color.key_text,null));val q=(8*dp).toInt();setPadding(q,q,q,q);setOnClickListener{serviceScope.launch{preferencesManager.setTranslationEnabled(!on)};p.dismiss()}})}
-    private fun showKeyboardTooltips(root:View){/* unchanged debug build: tooltips intentionally omitted */}
+    private fun showKeyboardTooltips(root:View){/* unchanged */}
     private fun getTranslationTargets():List<SttLanguage>{val a=listOf(SttLanguage.English,SttLanguage.Chinese,SttLanguage.Japanese);return if(currentSttLanguage==SttLanguage.Auto)a else a.filter{it!=currentSttLanguage}}
     private fun cycleTranslationTarget(){val t=getTranslationTargets();if(!translationEnabled){serviceScope.launch{preferencesManager.setTranslationTargetLanguage(t.first());preferencesManager.setTranslationEnabled(true)};return};val i=t.indexOf(translationTargetLanguage).let{if(it==-1)t.size-1 else it}+1;if(i>=t.size)serviceScope.launch{preferencesManager.setTranslationEnabled(false)}else serviceScope.launch{preferencesManager.setTranslationTargetLanguage(t[i])}}
     private fun updateTranslationIndicator(){if(!translationEnabled){translationIndicatorRow?.visibility=View.GONE;return};translationIndicatorRow?.visibility=View.VISIBLE;candidateBar?.visibility=View.VISIBLE;val n=when(translationTargetLanguage){SttLanguage.English->getString(R.string.lang_en);SttLanguage.Chinese->getString(R.string.lang_zh);SttLanguage.Japanese->getString(R.string.lang_ja);else->translationTargetLanguage.code?:"?"};val f=when(currentSttLanguage){SttLanguage.Chinese->R.string.translation_indicator_speak_zh;SttLanguage.English->R.string.translation_indicator_speak_en;SttLanguage.Japanese->R.string.translation_indicator_speak_ja;else->R.string.translation_indicator_speak_auto};translationLabel?.text=getString(f,n)}
