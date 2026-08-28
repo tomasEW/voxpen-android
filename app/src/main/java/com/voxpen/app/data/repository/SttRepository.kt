@@ -187,7 +187,7 @@ class SttRepository
                         when (code) {
                             400 -> "${provider.displayName} STT rejected the request (400). Check the selected model and audio format."
                             401 -> "${provider.displayName} STT authentication failed (401). Check the API key."
-                            403 -> "${provider.displayName} STT request forbidden (403): ${detail ?: error.message()}"
+                            403 -> forbiddenMessage(provider, detail, error.message())
                             404 -> "${provider.displayName} STT model or endpoint was not found (404)."
                             429 -> "${provider.displayName} STT rate limit reached (429). Automatic retries were exhausted; try again shortly."
                             in 500..599 -> "${provider.displayName} STT service is temporarily unavailable ($code). Automatic retries were exhausted."
@@ -200,6 +200,22 @@ class SttRepository
                         "${provider.displayName} STT failed: ${error.message ?: error::class.java.simpleName}"
                 }
             return IOException(message, error)
+        }
+
+        private fun forbiddenMessage(
+            provider: SttProvider,
+            detail: String?,
+            fallback: String?,
+        ): String {
+            val networkBlocked =
+                detail?.contains("Access denied", ignoreCase = true) == true ||
+                    detail?.contains("network settings", ignoreCase = true) == true
+
+            return if (networkBlocked) {
+                "${provider.displayName} STT 当前网络被拒绝（403）。请切换 VPN 节点或关闭 VPN 后重试。"
+            } else {
+                "${provider.displayName} STT 请求被拒绝（403）：${detail ?: fallback ?: "Forbidden"}"
+            }
         }
 
         private fun logAttemptFailure(
