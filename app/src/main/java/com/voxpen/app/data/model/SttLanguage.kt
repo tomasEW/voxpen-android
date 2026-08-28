@@ -62,7 +62,7 @@ sealed class SttLanguage(
     data object Indonesian : SttLanguage(
         code = "id",
         prompt = "Transkripsi ucapan bahasa Indonesia.",
-        emoji = "\uD83C\uDDEE\uD83C\uDDF9",
+        emoji = "\uD83C\uDDEE\uD83C\uDDE9",
     )
 
     data object Thai : SttLanguage(
