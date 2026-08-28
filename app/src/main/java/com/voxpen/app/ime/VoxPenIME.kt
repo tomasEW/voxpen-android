@@ -442,23 +442,18 @@ class VoxPenIME : InputMethodService() {
             is ImeUiState.Refining -> {
                 timerHandler.removeCallbacks(timerRunnable)
                 val originalText = normalizeOutputText(state.original)
-                showDualRows(originalText, null)
+                showStatusRow(originalText, showProgress = true)
+                copyStatusButton?.visibility = View.VISIBLE
+                copyStatusButton?.setOnClickListener { copyToClipboard(originalText) }
             }
             is ImeUiState.Refined -> {
                 timerHandler.removeCallbacks(timerRunnable)
                 val originalText = normalizeOutputText(state.original)
                 val refinedText = normalizeOutputText(state.refined)
-                showDualRows(originalText, refinedText)
-                candidateOriginal?.setOnClickListener {
-                    currentInputConnection?.commitText(originalText, 1)
-                    recordingController.dismiss()
-                }
-                candidateRefinedRow?.setOnClickListener {
-                    currentInputConnection?.commitText(refinedText, 1)
-                    recordingController.dismiss()
-                }
-                copyRefinedButton?.visibility = View.VISIBLE
-                copyRefinedButton?.setOnClickListener { copyToClipboard(refinedText) }
+                showStatusRow(originalText, showProgress = false)
+                copyStatusButton?.visibility = View.VISIBLE
+                copyStatusButton?.setOnClickListener { copyToClipboard(originalText) }
+                currentInputConnection?.commitText(refinedText, 1)
             }
             is ImeUiState.Error -> {
                 timerHandler.removeCallbacks(timerRunnable)
