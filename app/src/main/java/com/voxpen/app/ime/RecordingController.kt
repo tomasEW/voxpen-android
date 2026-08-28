@@ -134,8 +134,6 @@ class RecordingController(
                 )
             result.fold(
                 onSuccess = { originalText ->
-                    Timber.i("DBG_STT_RAW=%s", originalText)
-
                     if (!proStatus.isPro) {
                         usageLimiter.incrementVoiceInput()
                     }
@@ -153,11 +151,11 @@ class RecordingController(
 
                     val shouldRefine = refinementEnabled && canUseRefinement(proStatus)
                     if (!shouldRefine) {
-                        _uiState.value = ImeUiState.Result("[DBG RAW/STT]\n$originalText")
+                        _uiState.value = ImeUiState.Result(originalText)
                         return@launch
                     }
 
-                    _uiState.value = ImeUiState.Refining("[DBG RAW/STT]\n$originalText")
+                    _uiState.value = ImeUiState.Refining(originalText)
                     if (!proStatus.isPro) {
                         usageLimiter.incrementRefinement()
                     }
@@ -196,22 +194,19 @@ class RecordingController(
                     _uiState.value =
                         refinedResult.fold(
                             onSuccess = { refinedText ->
-                                Timber.i("DBG_LLM_REFINED=%s", refinedText)
                                 ImeUiState.Refined(
-                                    original = "[DBG RAW/STT]\n$originalText",
-                                    refined = "[DBG REFINED/LLM]\n$refinedText",
+                                    original = originalText,
+                                    refined = refinedText,
                                 )
                             },
                             onFailure = { error ->
-                                Timber.e(
+                                Timber.w(
                                     error,
-                                    "DBG_REFINE_FAILED provider=%s model=%s",
+                                    "refinement_failed provider=%s model=%s; keeping original transcription visible",
                                     llmProvider.key,
                                     resolvedModel,
                                 )
-                                ImeUiState.Result(
-                                    "[DBG REFINE FAILED]\n${error.message ?: error::class.java.simpleName}\n\n[DBG RAW/STT]\n$originalText",
-                                )
+                                ImeUiState.Result(originalText)
                             },
                         )
                 },
@@ -228,7 +223,7 @@ class RecordingController(
                     }.onFailure { saveError ->
                         Timber.w(saveError, "failed_recording_save_failed provider=%s", currentSttProvider.key)
                     }
-                    _uiState.value = ImeUiState.Error("[DBG STT FAILED]\n$message")
+                    _uiState.value = ImeUiState.Error(message)
                 },
             )
         }
