@@ -46,10 +46,10 @@ jobs:
       - name: Rename APK
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk \
-             app/build/outputs/apk/debug/voxpen-v1.2.9-build-${GITHUB_RUN_NUMBER}.apk
+             app/build/outputs/apk/debug/voxpen-v1.2.10-build-${GITHUB_RUN_NUMBER}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: voxpen-v1.2.9-build-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/voxpen-v1.2.9-build-${{ github.run_number }}.apk
+          name: voxpen-v1.2.10-build-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/voxpen-v1.2.10-build-${{ github.run_number }}.apk
