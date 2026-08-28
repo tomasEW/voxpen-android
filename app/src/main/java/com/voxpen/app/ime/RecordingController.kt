@@ -134,17 +134,17 @@ class RecordingController(
                 )
             result.fold(
                 onSuccess = { originalText ->
+                    Timber.i("DBG_STT_RAW=%s", originalText)
+
                     if (!proStatus.isPro) {
                         usageLimiter.incrementVoiceInput()
                     }
 
-                    // Speak-to-Edit: emit instruction for VoxPenIME to handle
                     if (editMode) {
                         _uiState.value = ImeUiState.EditInstruction(originalText)
                         return@launch
                     }
 
-                    // Voice command check — executes keyboard action instead of inserting text
                     val command = VoiceCommandRecognizer.recognize(originalText)
                     if (command != null) {
                         _uiState.value = ImeUiState.CommandDetected(command)
@@ -153,13 +153,15 @@ class RecordingController(
 
                     val shouldRefine = refinementEnabled && canUseRefinement(proStatus)
                     if (!shouldRefine) {
-                        _uiState.value = ImeUiState.Result(originalText)
+                        _uiState.value = ImeUiState.Result("[DBG RAW/STT]\n$originalText")
                         return@launch
                     }
-                    _uiState.value = ImeUiState.Refining(originalText)
+
+                    _uiState.value = ImeUiState.Refining("[DBG RAW/STT]\n$originalText")
                     if (!proStatus.isPro) {
                         usageLimiter.incrementRefinement()
                     }
+
                     val allVocabulary = dictionaryRepository.getWords(500)
                     val langKey = PreferencesManager.languageToKey(language)
                     val customPrompt = preferencesManager.customPromptFlow(langKey).first()
@@ -190,17 +192,26 @@ class RecordingController(
                             translationEnabled,
                             translationTargetLanguage,
                         )
+
                     _uiState.value =
                         refinedResult.fold(
-                            onSuccess = { ImeUiState.Refined(originalText, it) },
+                            onSuccess = { refinedText ->
+                                Timber.i("DBG_LLM_REFINED=%s", refinedText)
+                                ImeUiState.Refined(
+                                    original = "[DBG RAW/STT]\n$originalText",
+                                    refined = "[DBG REFINED/LLM]\n$refinedText",
+                                )
+                            },
                             onFailure = { error ->
-                                Timber.w(
+                                Timber.e(
                                     error,
-                                    "refinement_failed provider=%s model=%s; falling back to original transcription",
+                                    "DBG_REFINE_FAILED provider=%s model=%s",
                                     llmProvider.key,
                                     resolvedModel,
                                 )
-                                ImeUiState.Result(originalText)
+                                ImeUiState.Result(
+                                    "[DBG REFINE FAILED]\n${error.message ?: error::class.java.simpleName}\n\n[DBG RAW/STT]\n$originalText",
+                                )
                             },
                         )
                 },
@@ -217,7 +228,7 @@ class RecordingController(
                     }.onFailure { saveError ->
                         Timber.w(saveError, "failed_recording_save_failed provider=%s", currentSttProvider.key)
                     }
-                    _uiState.value = ImeUiState.Error(message)
+                    _uiState.value = ImeUiState.Error("[DBG STT FAILED]\n$message")
                 },
             )
         }
