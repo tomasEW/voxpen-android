@@ -27,8 +27,8 @@ android {
         applicationId = "com.voxpen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.2.10"
+        versionCode = 16
+        versionName = "1.2.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -90,8 +90,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.process)
 
     implementation("com.github.qichuan:android-opencc:1.2.0")
 
