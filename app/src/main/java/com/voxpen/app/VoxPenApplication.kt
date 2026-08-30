@@ -6,6 +6,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.voxpen.app.billing.BillingManager
 import com.voxpen.app.billing.LicenseManager
+import com.voxpen.app.util.DownloadLogTree
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,8 @@ class VoxPenApplication : Application() {
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
+        Timber.plant(DownloadLogTree(applicationContext))
+        Timber.i("VoxPen support logging started; version=%s (%d)", BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
         billingManager.initialize()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(
