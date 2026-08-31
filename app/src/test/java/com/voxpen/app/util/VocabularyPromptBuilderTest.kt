@@ -8,7 +8,7 @@ class VocabularyPromptBuilderTest {
     @Test
     fun `should return base prompt when vocabulary is empty`() {
         val result = VocabularyPromptBuilder.buildWhisperPrompt(SttLanguage.Chinese, emptyList())
-        assertThat(result).isEqualTo("繁體中文轉錄。")
+        assertThat(result).isEqualTo(SttLanguage.Chinese.prompt)
     }
 
     @Test
@@ -18,7 +18,7 @@ class VocabularyPromptBuilderTest {
                 SttLanguage.Chinese,
                 listOf("語墨", "Anthropic"),
             )
-        assertThat(result).isEqualTo("繁體中文轉錄。 語墨, Anthropic")
+        assertThat(result).isEqualTo("${SttLanguage.Chinese.prompt} 語墨, Anthropic")
     }
 
     @Test
@@ -26,9 +26,9 @@ class VocabularyPromptBuilderTest {
         val longWords = (1..120).map { "詞彙$it" }
         val result = VocabularyPromptBuilder.buildWhisperPrompt(SttLanguage.Chinese, longWords)
         assertThat(result.length).isLessThan(
-            "繁體中文轉錄。".length + longWords.joinToString(", ").length,
+            SttLanguage.Chinese.prompt.length + longWords.joinToString(", ").length,
         )
-        assertThat(result).startsWith("繁體中文轉錄。")
+        assertThat(result).startsWith(SttLanguage.Chinese.prompt)
     }
 
     @Test
