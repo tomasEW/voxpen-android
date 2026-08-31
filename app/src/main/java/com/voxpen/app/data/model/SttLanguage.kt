@@ -7,13 +7,13 @@ sealed class SttLanguage(
 ) {
     data object Auto : SttLanguage(
         code = null,
-        prompt = "自动识别语音语言。若为中文，请直接转写为简体中文，不要翻译成英文或其他语言；保留英文术语。",
+        prompt = "自動識別語音語言。若為中文，請直接轉寫，不要翻譯成英文或其他語言；保留英文術語。",
         emoji = "\uD83C\uDF10",
     )
 
     data object Chinese : SttLanguage(
         code = "zh",
-        prompt = "将中文语音直接转写为简体中文，不要翻译成英文或其他语言。",
+        prompt = "將中文語音直接轉寫，不要翻譯成英文或其他語言。",
         emoji = "\uD83C\uDDF9\uD83C\uDDFC",
     )
 
