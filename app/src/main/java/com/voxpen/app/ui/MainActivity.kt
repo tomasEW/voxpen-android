@@ -13,7 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.voxpen.app.ui.dictionary.DictionaryScreenContent
 import com.voxpen.app.ui.onboarding.OnboardingScreenContent
-import com.voxpen.app.ui.settings.SettingsScreenContent
+import com.voxpen.app.ui.settings.SettingsWithLogToggle
 import com.voxpen.app.ui.theme.VoxPenTheme
 import com.voxpen.app.ui.transcription.TranscriptionScreenContent
 import dagger.hilt.android.AndroidEntryPoint
@@ -21,13 +21,9 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        super.onCreate()
         enableEdgeToEdge()
-        setContent {
-            VoxPenTheme {
-                VoxPenNavHost()
-            }
-        }
+        setContent { VoxPenTheme { VoxPenNavHost() } }
     }
 }
 
@@ -36,16 +32,13 @@ private fun VoxPenNavHost() {
     val navController = rememberNavController()
     val mainViewModel: MainViewModel = hiltViewModel()
     val isOnboardingCompleted by mainViewModel.onboardingCompleted.collectAsState(initial = true)
-
     val startDestination = if (isOnboardingCompleted) "home" else "onboarding"
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable("onboarding") {
             OnboardingScreenContent(
                 onComplete = {
-                    navController.navigate("home") {
-                        popUpTo("onboarding") { inclusive = true }
-                    }
+                    navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
                 },
             )
         }
@@ -56,16 +49,12 @@ private fun VoxPenNavHost() {
             )
         }
         composable("settings") {
-            SettingsScreenContent(
+            SettingsWithLogToggle(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToDictionary = { navController.navigate("dictionary") },
             )
         }
-        composable("transcription") {
-            TranscriptionScreenContent(onNavigateBack = { navController.popBackStack() })
-        }
-        composable("dictionary") {
-            DictionaryScreenContent(onNavigateBack = { navController.popBackStack() })
-        }
+        composable("transcription") { TranscriptionScreenContent(onNavigateBack = { navController.popBackStack() }) }
+        composable("dictionary") { DictionaryScreenContent(onNavigateBack = { navController.popBackStack() }) }
     }
 }
