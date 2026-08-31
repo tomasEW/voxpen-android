@@ -14,6 +14,7 @@ data class SettingsUiState(
     val language: SttLanguage = SttLanguage.Auto,
     val recordingMode: RecordingMode = RecordingMode.TAP_TO_TOGGLE,
     val refinementEnabled: Boolean = true,
+    val downloadLoggingEnabled: Boolean = PreferencesManager.DEFAULT_DOWNLOAD_LOGGING_ENABLED,
     val sttProvider: SttProvider = SttProvider.DEFAULT,
     val sttModel: String = PreferencesManager.DEFAULT_STT_MODEL,
     val llmModel: String = PreferencesManager.DEFAULT_LLM_MODEL,
@@ -40,17 +41,10 @@ data class SettingsUiState(
     val llmTestStatus: LlmTestStatus = LlmTestStatus.Idle,
 )
 
-/** Result of the "Test provider" button in settings. */
 sealed interface LlmTestStatus {
     data object Idle : LlmTestStatus
     data object Testing : LlmTestStatus
-
-    /** Provider responded; [detail] is a short reply snippet. */
     data class Success(val detail: String) : LlmTestStatus
-
-    /** Provider call failed; [message] is the underlying error. */
     data class Error(val message: String) : LlmTestStatus
-
-    /** Custom provider selected but no Base URL entered. */
     data object NoBaseUrl : LlmTestStatus
 }
