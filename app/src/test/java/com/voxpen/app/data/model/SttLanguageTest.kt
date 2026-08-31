@@ -7,13 +7,17 @@ class SttLanguageTest {
     @Test
     fun `should define auto-detect with no language code`() {
         assertThat(SttLanguage.Auto.code).isNull()
-        assertThat(SttLanguage.Auto.prompt).isEqualTo("繁體中文，可能夾雜英文。")
+        assertThat(SttLanguage.Auto.prompt).isEqualTo(
+            "自動識別語音語言。若為中文，請直接轉寫，不要翻譯成英文或其他語言；保留英文術語。",
+        )
     }
 
     @Test
-    fun `should define Chinese with zh code and Traditional Chinese prompt`() {
+    fun `should define Chinese with zh code and neutral transcription prompt`() {
         assertThat(SttLanguage.Chinese.code).isEqualTo("zh")
-        assertThat(SttLanguage.Chinese.prompt).isEqualTo("繁體中文轉錄。")
+        assertThat(SttLanguage.Chinese.prompt).isEqualTo(
+            "將中文語音直接轉寫，不要翻譯成英文或其他語言。",
+        )
     }
 
     @Test
