@@ -2,6 +2,9 @@ name: Build APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
@@ -29,12 +32,14 @@ jobs:
           printf '%s' "$VOXPEN_DEBUG_KEYSTORE_BASE64" | base64 --decode > .ci/voxpen-debug.keystore
           chmod 600 .ci/voxpen-debug.keystore
           keytool -list -keystore .ci/voxpen-debug.keystore -storepass android -alias androiddebugkey >/dev/null
+      - name: Run unit tests
+        run: ./gradlew test
       - name: Build debug APK
         run: ./gradlew assembleDebug
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/voxpen-v1.2.12-build-${GITHUB_RUN_NUMBER}.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/voxpen-v1.2.13-build-${GITHUB_RUN_NUMBER}.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: voxpen-v1.2.12-build-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/voxpen-v1.2.12-build-${{ github.run_number }}.apk
+          name: voxpen-v1.2.13-build-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/voxpen-v1.2.13-build-${{ github.run_number }}.apk
