@@ -140,7 +140,7 @@ class VoxPenIME : InputMethodService() {
         return view
     }
 
-    override fun onDestroyInputView() {
+    override fun onFinishInputView(finishingInput: Boolean) {
         if (::recordingController.isInitialized && recordingController.uiState.value == ImeUiState.Recording) {
             stopRecording()
         }
@@ -163,7 +163,7 @@ class VoxPenIME : InputMethodService() {
         translationIndicatorRow = null
         translationLabel = null
         translationCloseButton = null
-        super.onDestroyInputView()
+        super.onFinishInputView(finishingInput)
     }
 
     private fun bindViews(view: View) {
