@@ -144,25 +144,8 @@ class VoxPenIME : InputMethodService() {
         if (::recordingController.isInitialized && recordingController.uiState.value == ImeUiState.Recording) {
             stopRecording()
         }
-        inputViewScope?.cancel()
-        inputViewScope = null
         stopMicPulse()
         timerHandler.removeCallbacks(timerRunnable)
-        candidateBar = null
-        candidateStatusRow = null
-        candidateText = null
-        candidateProgress = null
-        candidateOriginal = null
-        candidateRefinedRow = null
-        candidateRefined = null
-        refineProgress = null
-        copyStatusButton = null
-        copyRefinedButton = null
-        micButton = null
-        toneButton = null
-        translationIndicatorRow = null
-        translationLabel = null
-        translationCloseButton = null
         super.onFinishInputView(finishingInput)
     }
 
