@@ -1,7 +1,6 @@
 package com.voxpen.app.ui.settings
 
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,9 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -55,10 +52,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.voxpen.app.BuildConfig
 import com.voxpen.app.R
-import com.voxpen.app.billing.ProSource
-import com.voxpen.app.billing.ProStatus
 import com.voxpen.app.data.model.RecordingMode
 import com.voxpen.app.data.model.SttLanguage
 import com.voxpen.app.data.model.LlmProvider
@@ -109,11 +103,6 @@ fun SettingsScreenContent(
                     .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState()),
         ) {
-            ProStatusSection(state, context as? Activity, viewModel)
-            if (BuildConfig.DEBUG) {
-                DebugProToggle(state, viewModel)
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             ApiKeySection(state, apiKeyInput, { apiKeyInput = it }) {
                 viewModel.saveApiKey(apiKeyInput)
                 apiKeyInput = ""
@@ -151,159 +140,6 @@ fun SettingsScreenContent(
         }
     }
 
-    LicenseActivationDialog(state, viewModel)
-}
-
-@Composable
-private fun ProStatusSection(
-    state: SettingsUiState,
-    activity: Activity?,
-    viewModel: SettingsViewModel,
-) {
-    SectionHeader(stringResource(R.string.pro_section_title))
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    if (state.proStatus.isPro) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-            ),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            val statusLabel = when {
-                state.proStatus is ProStatus.Pro && state.proStatus.source == ProSource.LICENSE_KEY ->
-                    stringResource(R.string.license_status_active)
-                state.proStatus.isPro -> stringResource(R.string.pro_status_pro)
-                else -> stringResource(R.string.pro_status_free)
-            }
-            Text(statusLabel, style = MaterialTheme.typography.titleMedium)
-
-            if (!state.proStatus.isPro) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.pro_upgrade_description),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    stringResource(R.string.usage_voice_remaining, state.remainingVoiceInputs),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Text(
-                    stringResource(R.string.usage_refinement_remaining, state.remainingRefinements),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Text(
-                    stringResource(R.string.usage_transcription_remaining, state.remainingFileTranscriptions),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.free_plan_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = { activity?.let { viewModel.launchPurchaseFlow(it) } },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.usage_upgrade_pro))
-                }
-                OutlinedButton(
-                    onClick = { viewModel.restorePurchases() },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.pro_restore_purchase))
-                }
-            }
-
-            if (state.isActivatingLicense) {
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.height(16.dp).padding(end = 8.dp),
-                    )
-                    Text(
-                        stringResource(R.string.license_activating),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
-
-            state.licenseError?.let { error ->
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
-            val isLicensePro = state.proStatus is ProStatus.Pro &&
-                (state.proStatus as? ProStatus.Pro)?.source == ProSource.LICENSE_KEY
-            if (isLicensePro) {
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { viewModel.deactivateLicense() },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.license_deactivate_button))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LicenseActivationDialog(
-    state: SettingsUiState,
-    viewModel: SettingsViewModel,
-) {
-    var showLicenseDialog by remember { mutableStateOf(false) }
-
-    if (!state.proStatus.isPro) {
-        TextButton(onClick = { showLicenseDialog = true }) {
-            Text(stringResource(R.string.upgrade_prompt_license))
-        }
-    }
-
-    if (showLicenseDialog) {
-        var licenseKey by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showLicenseDialog = false },
-            title = { Text(stringResource(R.string.license_activate_title)) },
-            text = {
-                OutlinedTextField(
-                    value = licenseKey,
-                    onValueChange = { licenseKey = it },
-                    label = { Text(stringResource(R.string.license_activate_hint)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.activateLicense(licenseKey)
-                        showLicenseDialog = false
-                    },
-                    enabled = licenseKey.isNotBlank(),
-                ) {
-                    Text(stringResource(R.string.license_activate_button))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLicenseDialog = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            },
-        )
-    }
 }
 
 @Composable
@@ -801,30 +637,6 @@ private fun RadioRow(
     ) {
         RadioButton(selected = selected, onClick = onClick)
         Text(label, modifier = Modifier.padding(start = 8.dp))
-    }
-}
-
-@Composable
-private fun DebugProToggle(
-    state: SettingsUiState,
-    viewModel: SettingsViewModel,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "\uD83D\uDEE0 Debug: Force Pro",
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
-        )
-        Switch(
-            checked = state.proStatus.isPro,
-            onCheckedChange = { viewModel.toggleDebugPro() },
-        )
     }
 }
 

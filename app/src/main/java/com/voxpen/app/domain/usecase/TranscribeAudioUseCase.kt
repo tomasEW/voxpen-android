@@ -5,6 +5,7 @@ import com.voxpen.app.data.model.SttProvider
 import com.voxpen.app.data.repository.SttRepository
 import com.voxpen.app.util.AudioEncoder
 import com.voxpen.app.util.LiveAudioChunker
+import com.voxpen.app.util.TranscriptionTextJoiner
 import javax.inject.Inject
 
 class TranscribeAudioUseCase
@@ -48,7 +49,7 @@ class TranscribeAudioUseCase
                     onFailure = { return Result.failure(it) },
                 )
             }
-            val joined = textChunks.filter { it.isNotBlank() }.joinToString(" ")
+            val joined = TranscriptionTextJoiner.join(textChunks, language)
             return Result.success(collapseObviousAdjacentDuplicates(joined))
         }
 

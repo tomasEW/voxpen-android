@@ -46,7 +46,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,17 +55,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.voxpen.app.R
-import com.voxpen.app.data.local.PreferencesManager
 import com.voxpen.app.data.local.TranscriptionEntity
-import com.voxpen.app.data.model.LlmProvider
 import com.voxpen.app.data.model.SttLanguage
-import com.voxpen.app.data.model.SttProvider
 import com.voxpen.app.util.ExportHelper
-import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -79,131 +70,23 @@ fun TranscriptionScreenContent(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     val filePicker =
         rememberLauncherForActivityResult(
             ActivityResultContracts.GetContent(),
         ) { uri ->
             uri ?: return@rememberLauncherForActivityResult
-            viewModel.onFileSelected(uri)
-            // Check if onFileSelected rejected due to limits
-            if (!state.isTranscribing && state.error != null) return@rememberLauncherForActivityResult
-            scope.launch {
-                try {
-                    val fileBytes =
-                        withContext(Dispatchers.IO) {
-                            context.contentResolver.openInputStream(uri)?.readBytes()
-                        }
-                    if (fileBytes == null) {
-                        viewModel.onTranscriptionError("Could not read file")
-                        return@launch
-                    }
-                    val fileName =
-                        uri.lastPathSegment?.substringAfterLast('/') ?: "audio"
-                    val entryPoint =
-                        EntryPointAccessors.fromApplication(
-                            context.applicationContext,
-                            TranscriptionEntryPoint::class.java,
-                        )
-                    val useCase = entryPoint.transcribeFileUseCase()
-                    val apiKeyManager = entryPoint.apiKeyManager()
-                    val prefsManager = entryPoint.preferencesManager()
-                    val dictRepo = entryPoint.dictionaryRepository()
-
-                    val sttProvider = prefsManager.sttProviderFlow.first()
-                    val sttApiKey = apiKeyManager.getSttApiKey(sttProvider).orEmpty()
-                    val sttModel = prefsManager.sttModelFlow.first().ifBlank { sttProvider.defaultModelId }
-                    val customSttBaseUrl =
-                        if (sttProvider == SttProvider.Custom) {
-                            prefsManager.customSttBaseUrlFlow.first().ifBlank { null }
-                        } else {
-                            null
-                        }
-                    val llmProvider = prefsManager.llmProviderFlow.first()
-                    val llmApiKey = apiKeyManager.getApiKey(llmProvider) ?: apiKeyManager.getGroqApiKey()
-                    val llmModel =
-                        if (llmProvider == LlmProvider.Custom) {
-                            prefsManager.customLlmModelFlow.first().ifBlank { prefsManager.llmModelFlow.first() }
-                        } else {
-                            prefsManager.llmModelFlow.first()
-                        }
-                    val refinementEnabled = prefsManager.refinementEnabledFlow.first()
-                    val tone = prefsManager.toneStyleFlow.first()
-                    val vocabulary = dictRepo.getWords(500)
-                    val language = state.selectedLanguage
-                    val langKey = PreferencesManager.languageToKey(language)
-                    val customPrompt = prefsManager.customPromptFlow(langKey).first()
-                    val customLlmBaseUrl =
-                        if (llmProvider == LlmProvider.Custom) {
-                            apiKeyManager.getCustomBaseUrl()
-                        } else {
-                            null
-                        }
-
-                    var entity: TranscriptionEntity? = null
-                    var errorMsg: String? = null
-                    withContext(Dispatchers.IO) {
-                        val result =
-                            useCase(
-                                fileBytes = fileBytes,
-                                fileName = fileName,
-                                language = language,
-                                apiKey = sttApiKey,
-                                sttProvider = sttProvider,
-                                sttModel = sttModel,
-                                customSttBaseUrl = customSttBaseUrl,
-                                refinementApiKey = if (refinementEnabled) llmApiKey else null,
-                                llmModel = llmModel,
-                                llmProvider = llmProvider,
-                                customLlmBaseUrl = customLlmBaseUrl,
-                                tone = tone,
-                                vocabulary = vocabulary,
-                                customPrompt = customPrompt,
-                            )
-                        entity = result.getOrNull()
-                        errorMsg = result.exceptionOrNull()?.message
-                    }
-                    val e = entity
-                    if (e != null) {
-                        viewModel.onTranscriptionComplete(e)
-                    } else {
-                        viewModel.onTranscriptionError(errorMsg ?: "Transcription failed")
-                    }
-                } catch (e: Exception) {
-                    viewModel.onTranscriptionError(e.message ?: "Unknown error")
-                }
-            }
+            val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "audio"
+            viewModel.transcribeFile(
+                fileName = fileName,
+                fileMimeType = context.contentResolver.getType(uri),
+                openStream = { context.contentResolver.openInputStream(uri) },
+            )
         }
-
-    if (state.showUpgradePrompt) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissUpgradePrompt() },
-            title = { Text(stringResource(R.string.upgrade_prompt_title)) },
-            text = {
-                Text(
-                    stringResource(
-                        R.string.usage_limit_transcription,
-                    ),
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.dismissUpgradePrompt() }) {
-                    Text(stringResource(R.string.upgrade_prompt_button))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissUpgradePrompt() }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            },
-        )
-    }
 
     if (state.selectedTranscription != null) {
         TranscriptionDetailScreen(
             entity = state.selectedTranscription!!,
-            isPro = state.proStatus.isPro,
             isRetrying = state.retryingId == state.selectedTranscription!!.id,
             onBack = { viewModel.clearSelection() },
             onDelete = { id ->
@@ -226,7 +109,7 @@ fun TranscriptionScreenContent(
                 )
             },
             floatingActionButton = {
-                if (!state.isTranscribing && state.canTranscribeFile) {
+                if (!state.isTranscribing) {
                     FloatingActionButton(onClick = { filePicker.launch("audio/*") }) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.transcription_pick_file))
                     }
@@ -238,14 +121,12 @@ fun TranscriptionScreenContent(
                     .fillMaxSize()
                     .padding(innerPadding),
             ) {
-                if (!state.proStatus.isPro) {
-                    Text(
-                        stringResource(R.string.usage_transcription_remaining, state.remainingFileTranscriptions),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                }
+                Text(
+                    stringResource(R.string.usage_unlimited_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
                 // Language selector
                 Row(
                     Modifier
@@ -389,7 +270,6 @@ private fun TranscriptionItem(
 @Composable
 private fun TranscriptionDetailScreen(
     entity: TranscriptionEntity,
-    isPro: Boolean,
     isRetrying: Boolean,
     onBack: () -> Unit,
     onDelete: (Long) -> Unit,
@@ -449,10 +329,8 @@ private fun TranscriptionDetailScreen(
                         }) {
                             Text("SRT", style = MaterialTheme.typography.labelMedium)
                         }
-                        if (isPro) {
-                            IconButton(onClick = { shareTranscription(context, entity) }) {
-                                Icon(Icons.Default.Share, contentDescription = "Share")
-                            }
+                        IconButton(onClick = { shareTranscription(context, entity) }) {
+                            Icon(Icons.Default.Share, contentDescription = "Share")
                         }
                     }
                     IconButton(onClick = { showDeleteDialog = true }) {

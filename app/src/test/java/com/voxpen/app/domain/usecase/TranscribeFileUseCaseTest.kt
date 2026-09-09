@@ -106,6 +106,34 @@ class TranscribeFileUseCaseTest {
         }
 
     @Test
+    fun `should not insert spaces between Chinese file chunks`() =
+        runTest {
+            val pcmData = ByteArray(200_000) { (it % 256).toByte() }
+            val wavBytes = AudioEncoder.pcmToWav(pcmData, 16000, 1, 16)
+
+            var callCount = 0
+            coEvery { sttApi.transcribe(any(), any(), any(), any(), any(), any()) } answers {
+                callCount++
+                WhisperResponse(text = if (callCount == 1) "第一段" else "第二段")
+            }
+            coEvery { transcriptionRepository.insert(any()) } returns 1L
+
+            val result =
+                useCase(
+                    fileBytes = wavBytes,
+                    fileName = "long.wav",
+                    language = SttLanguage.Chinese,
+                    apiKey = "test-key",
+                    maxChunkBytes = 50_000,
+                )
+
+            val text = result.getOrNull()?.originalText.orEmpty()
+            assertThat(text).startsWith("第一段")
+            assertThat(text).doesNotContain(" ")
+            assertThat(callCount).isGreaterThan(1)
+        }
+
+    @Test
     fun `should save transcription to repository`() =
         runTest {
             val pcmData = ByteArray(100) { (it % 256).toByte() }

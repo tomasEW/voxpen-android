@@ -6,27 +6,36 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
-import com.voxpen.app.data.local.PreferencesManager
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /** Writes INFO/WARN/ERROR logs to Downloads/VoxPen only when explicitly enabled in Settings. */
 class DownloadLogTree(
     private val context: Context,
-    private val preferencesManager: PreferencesManager,
 ) : Timber.Tree() {
     private val lock = Any()
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val timestampFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS Z", Locale.US)
+    private val writerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
+    private var enabled = false
+
+    fun setEnabled(value: Boolean) {
+        enabled = value
+    }
 
     override fun isLoggable(tag: String?, priority: Int): Boolean =
-        priority >= Log.INFO && runBlocking { preferencesManager.downloadLoggingEnabledFlow.first() }
+        priority >= Log.INFO && enabled
 
     override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
         val level = when (priority) {
@@ -37,13 +46,20 @@ class DownloadLogTree(
         }
         val safeMessage = redact(message)
         val stack = t?.let { "\n${redact(Log.getStackTraceString(it))}" }.orEmpty()
-        val line = "${timestampFormat.format(Date())} [$level] ${tag ?: "VoxPen"}: $safeMessage$stack\n"
-
-        synchronized(lock) {
-            runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) appendWithMediaStore(line) else appendLegacy(line)
-            }.onFailure { Log.e("DownloadLogTree", "Unable to write support log", it) }
+        writerScope.launch {
+            val line = synchronized(lock) {
+                "${timestampFormat.format(Date())} [$level] ${tag ?: "VoxPen"}: $safeMessage$stack\n"
+            }
+            synchronized(lock) {
+                runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) appendWithMediaStore(line) else appendLegacy(line)
+                }.onFailure { Log.e("DownloadLogTree", "Unable to write support log", it) }
+            }
         }
+    }
+
+    fun close() {
+        writerScope.cancel()
     }
 
     private fun appendWithMediaStore(line: String) {

@@ -43,6 +43,10 @@
 
 VoxPen is an Android voice keyboard that transcribes your speech with Whisper, refines it with an LLM, and inserts clean text into any app. It runs on a **BYOK (Bring Your Own Key)** model — you use your own API keys and pay only for what you use. No subscription, no data collection, fully open-source.
 
+This fork disables the app's purchase and license flow. The original billing source remains in the repository for reference, but no billing UI is exposed and the billing client is not initialized. Voice input, refinement, and file transcription are available without an in-app usage plan.
+
+For Chinese, only the final text displayed/committed by the IME is converted to Simplified Chinese. File transcription, SRT export, file translation, and LLM responses retain their existing output behavior.
+
 ## Features
 
 ### Voice Dictation
@@ -62,6 +66,9 @@ VoxPen detects the active app and auto-selects the appropriate writing style —
 
 ### Audio File Transcription
 Transcribe audio/video files with progress tracking. Export as TXT or SRT subtitles.
+
+### Custom Vocabulary
+The custom vocabulary keeps a 10-entry user limit to keep recognition and refinement prompts focused. The LLM prompt builder separately caps the vocabulary suffix by estimated tokens.
 
 ### Privacy-First
 - **BYOK**: Audio goes directly from your device to your API provider
@@ -93,12 +100,12 @@ Transcribe audio/video files with progress tracking. Export as TXT or SRT subtit
 
 | Language | STT | LLM Refinement | Translation |
 |----------|-----|----------------|-------------|
-| 中文（繁體） | Whisper | Dedicated prompt | Target/source |
+| Chinese (Simplified at IME commit) | Whisper | Existing Chinese prompt | Target/source |
 | English | Whisper | Dedicated prompt | Target/source |
 | 日本語 | Whisper | Dedicated prompt | Target/source |
 | Auto-detect | Whisper | Mixed-language prompt | — |
 
-Whisper supports 99 languages for STT. VoxPen currently exposes 3 + auto-detect with dedicated refinement prompts.
+Whisper supports 99 languages for STT. VoxPen currently exposes 3 + auto-detect with dedicated refinement prompts. The existing Chinese prompts and file/LLM outputs are not rewritten by the IME-only Simplified conversion.
 
 ## Supported Providers
 

@@ -20,13 +20,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,8 +39,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.voxpen.app.R
-import com.voxpen.app.billing.UsageLimiter
 import com.voxpen.app.ui.settings.SettingsUiState
 import com.voxpen.app.ui.settings.SettingsViewModel
 
@@ -88,14 +90,28 @@ fun HomeScreenContent(
 @Composable
 private fun rememberKeyboardEnabled(): Boolean {
     val context = LocalContext.current
-    return remember {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var enabled by remember { mutableStateOf(false) }
+
+    fun isKeyboardEnabled(): Boolean =
         try {
             val imm = context.getSystemService(InputMethodManager::class.java)
             imm.enabledInputMethodList.any { it.packageName == context.packageName }
         } catch (_: Exception) {
             false
         }
+
+    DisposableEffect(context, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                enabled = isKeyboardEnabled()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        enabled = isKeyboardEnabled()
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    return enabled
 }
 
 @Suppress("LongParameterList")
@@ -120,10 +136,8 @@ private fun HomeBody(
         Spacer(Modifier.height(16.dp))
         WelcomeHeader()
         Spacer(Modifier.height(24.dp))
-        if (!state.proStatus.isPro) {
-            UsageSummaryCard(state = state)
-            Spacer(Modifier.height(16.dp))
-        }
+        UnlimitedUsageCard()
+        Spacer(Modifier.height(16.dp))
         SetupChecklist(
             isKeyboardEnabled = isKeyboardEnabled,
             isApiKeyConfigured = state.isApiKeyConfigured,
@@ -138,85 +152,21 @@ private fun HomeBody(
 }
 
 @Composable
-private fun UsageSummaryCard(state: SettingsUiState) {
-    val voiceLimit = UsageLimiter.FREE_VOICE_INPUT_LIMIT
-    val refineLimit = UsageLimiter.FREE_REFINEMENT_LIMIT
-    val transcribeLimit = UsageLimiter.FREE_FILE_TRANSCRIPTION_LIMIT
-
-    val voiceUsed = voiceLimit - state.remainingVoiceInputs
-    val refineUsed = refineLimit - state.remainingRefinements
-    val transcribeUsed = transcribeLimit - state.remainingFileTranscriptions
-
+private fun UnlimitedUsageCard() {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                stringResource(R.string.home_usage_title),
+                stringResource(R.string.usage_unlimited_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(12.dp))
-
-            UsageRow(
-                label = stringResource(R.string.home_usage_voice, voiceUsed, voiceLimit),
-                used = voiceUsed,
-                limit = voiceLimit,
-            )
-            Spacer(Modifier.height(8.dp))
-
-            UsageRow(
-                label = stringResource(R.string.home_usage_refinement, refineUsed, refineLimit),
-                used = refineUsed,
-                limit = refineLimit,
-            )
-            Spacer(Modifier.height(8.dp))
-
-            UsageRow(
-                label =
-                    stringResource(
-                        R.string.home_usage_transcription,
-                        transcribeUsed,
-                        transcribeLimit,
-                    ),
-                used = transcribeUsed,
-                limit = transcribeLimit,
-            )
-            Spacer(Modifier.height(8.dp))
-
             Text(
-                stringResource(R.string.home_usage_reset),
-                style = MaterialTheme.typography.labelSmall,
+                stringResource(R.string.usage_unlimited_description),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
             )
         }
-    }
-}
-
-@Composable
-private fun UsageRow(
-    label: String,
-    used: Int,
-    limit: Int,
-) {
-    val ratio = if (limit > 0) used.toFloat() / limit else 0f
-    val color =
-        when {
-            ratio >= 0.9f -> MaterialTheme.colorScheme.error
-            ratio >= 0.7f -> MaterialTheme.colorScheme.tertiary
-            else -> MaterialTheme.colorScheme.primary
-        }
-
-    Column {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Spacer(Modifier.height(2.dp))
-        LinearProgressIndicator(
-            progress = { ratio.coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth(),
-            color = color,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        )
     }
 }
 

@@ -85,11 +85,14 @@ class AudioRecorder(private val context: Context) {
 
     fun stopRecording(): ByteArray {
         isRecording = false
+        val recorder = audioRecord
+        runCatching { recorder?.stop() }
+            .onFailure { Timber.w(it, "AudioRecord stop failed") }
         recordingThread?.join(STOP_TIMEOUT_MS)
         recordingThread = null
 
-        audioRecord?.stop()
-        audioRecord?.release()
+        runCatching { recorder?.release() }
+            .onFailure { Timber.w(it, "AudioRecord release failed") }
         audioRecord = null
 
         val pcmData = pcmOutput?.toByteArray() ?: ByteArray(0)

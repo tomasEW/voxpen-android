@@ -2,11 +2,19 @@
 
 ## Project Overview
 
-VoxPen is an Android AI voice keyboard and transcription app, forked from [Dictate Keyboard](https://github.com/DevEmperor/Dictate) (Apache 2.0). The goal is to build a Typeless-quality UX with a BYOK (Bring Your Own Key) model, supporting Traditional Chinese and English.
+VoxPen is an Android AI voice keyboard and transcription app, forked from [Dictate Keyboard](https://github.com/DevEmperor/Dictate) (Apache 2.0). The goal is to build a Typeless-quality UX with a BYOK (Bring Your Own Key) model, supporting Chinese, English, and other Whisper languages.
 
 **App Name**: VoxPen (語墨)
 **Package**: `com.voxpen.app`
 **Original Fork**: `net.devemperor.dictate` → full rewrite to Kotlin
+
+## Current fork behavior
+
+- **Billing**: Google Play Billing and license code are retained as legacy source for reference, but the purchase/license flow is disabled in this fork. No billing UI is exposed and the application does not initialize the billing client or validate licenses.
+- **Usage**: Voice input, refinement, and file transcription are presented as unlimited. The legacy `UsageLimiter` remains for compatibility and uses a `9999` sentinel rather than the original 30/10/2 product limits.
+- **Chinese output scope**: `ChineseTextNormalizer.toMainlandSimplified()` is applied only by `VoxPenIME` at the IME display/commit boundary. File transcription, SRT export, file translation, and LLM responses keep their existing pipeline output and are not globally converted to Simplified Chinese.
+- **Custom vocabulary**: The user-visible dictionary limit remains 10 entries by design, because vocabulary is inserted into recognition/refinement prompts. The LLM vocabulary suffix also has an independent token budget so prompt size stays bounded if the source limit changes later.
+- **Documentation history**: The original monetization and Traditional-Chinese planning documents under `docs/plans/` are historical records. This section and the current code define the behavior of this fork.
 
 ## Tech Stack
 
@@ -38,13 +46,13 @@ VoxPen is an Android AI voice keyboard and transcription app, forked from [Dicta
 - **Custom Server**: user-defined endpoint (for self-hosted Whisper, etc.)
 
 #### Supported Languages (v1)
-- **Mandarin Chinese** (zh): Traditional Chinese output, prompt bias for 繁體
+- **Mandarin Chinese** (zh): existing Chinese STT/LLM prompt behavior; the final Chinese text committed by the IME is normalized to Simplified Chinese
 - **English** (en)
 - **Japanese** (ja)
 - **Auto-detect** (default): let Whisper detect language automatically
 - **Mixed-language**: supports code-switching (e.g., 中英混合、日中混合). Whisper handles this natively when set to auto-detect or with prompt hints like "繁體中文，可能夾雜英文"
 
-User can select: Auto / 中文 / English / 日本語 in settings or quick-switch from keyboard.
+User can select: Auto / 中文 / English / 日本語 in settings or quick-switch from keyboard. The Traditional Chinese wording in the existing prompts is intentional and is not a global output-conversion rule.
 
 #### Taiwanese Hokkien (Future)
 Whisper does NOT natively support Taiwanese Hokkien (nan-tw). With `language=zh`, Taiwanese speech is transcribed as Mandarin text (lossy but usable). Native Taiwanese ASR is a post-v1 goal — potential partners: 意傳科技, 教育部臺灣台語輸入法 team, or self-hosted fine-tuned models.
@@ -87,7 +95,7 @@ Whisper does NOT natively support Taiwanese Hokkien (nan-tw). With `language=zh`
 - **Status indicators** — recording (red pulse), processing (spinner), ready (green)
 
 ### i18n
-- Primary: Traditional Chinese (zh-TW), English (en)
+- Primary: Traditional Chinese UI (zh-TW), Simplified Chinese IME final output, and English (en)
 - All user-facing strings in `strings.xml` with translations
 - Use Android resource qualifiers (`values-zh-rTW/`, `values/`)
 

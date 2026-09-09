@@ -73,11 +73,22 @@ object ExportHelper {
     }
 
     private fun splitIntoSentences(text: String): List<String> {
-        val sentences =
-            text.split(Regex("(?<=[.!?。！？])[\\s]+"))
-                .filter { it.isNotBlank() }
+        val sentences = mutableListOf<String>()
+        var start = 0
+        text.forEachIndexed { index, character ->
+            if (character in SENTENCE_TERMINATORS &&
+                (index == text.lastIndex || text[index + 1] !in SENTENCE_TERMINATORS)
+            ) {
+                text.substring(start, index + 1).trim().takeIf { it.isNotEmpty() }?.let(sentences::add)
+                start = index + 1
+                while (start < text.length && text[start].isWhitespace()) start++
+            }
+        }
+        text.substring(start).trim().takeIf { it.isNotEmpty() }?.let(sentences::add)
         return sentences.ifEmpty { listOf(text) }
     }
+
+    private val SENTENCE_TERMINATORS = setOf('.', '!', '?', '。', '！', '？')
 }
 
 private data class ParsedSegment(val startMs: Long, val endMs: Long, val text: String)

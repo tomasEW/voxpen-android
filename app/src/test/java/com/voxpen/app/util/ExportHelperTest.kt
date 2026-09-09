@@ -137,4 +137,21 @@ class ExportHelperTest {
 
         assertThat(srt).contains("00:00:00,000 --> 00:00:05,000")
     }
+
+    @Test
+    fun `should split fallback sentences without requiring whitespace after punctuation`() {
+        val entity =
+            TranscriptionEntity(
+                fileName = "old.txt",
+                originalText = "第一句。第二句！第三句?",
+                createdAt = 1000L,
+            )
+
+        val srt = ExportHelper.toSrt(entity)
+
+        assertThat(srt).contains("第一句。")
+        assertThat(srt).contains("第二句！")
+        assertThat(srt).contains("第三句?")
+        assertThat(srt).contains("00:00:05,000 --> 00:00:10,000")
+    }
 }

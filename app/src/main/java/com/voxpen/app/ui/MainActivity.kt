@@ -4,9 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -31,30 +36,38 @@ class MainActivity : ComponentActivity() {
 private fun VoxPenNavHost() {
     val navController = rememberNavController()
     val mainViewModel: MainViewModel = hiltViewModel()
-    val isOnboardingCompleted by mainViewModel.onboardingCompleted.collectAsState(initial = true)
-    val startDestination = if (isOnboardingCompleted) "home" else "onboarding"
+    val isOnboardingCompleted: Boolean? by mainViewModel.onboardingCompleted.collectAsState(initial = null)
 
-    NavHost(navController = navController, startDestination = startDestination) {
-        composable("onboarding") {
-            OnboardingScreenContent(
-                onComplete = {
-                    navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
-                },
-            )
+    if (isOnboardingCompleted == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
         }
-        composable("home") {
-            HomeScreenContent(
-                onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToTranscription = { navController.navigate("transcription") },
-            )
+    } else {
+        val startDestination = if (isOnboardingCompleted == true) "home" else "onboarding"
+        NavHost(navController = navController, startDestination = startDestination) {
+            composable("onboarding") {
+                OnboardingScreenContent(
+                    onComplete = {
+                        navController.navigate("home") { popUpTo("onboarding") { inclusive = true } }
+                    },
+                )
+            }
+            composable("home") {
+                HomeScreenContent(
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    onNavigateToTranscription = { navController.navigate("transcription") },
+                )
+            }
+            composable("settings") {
+                SettingsWithLogToggle(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDictionary = { navController.navigate("dictionary") },
+                )
+            }
+            composable("transcription") {
+                TranscriptionScreenContent(onNavigateBack = { navController.popBackStack() })
+            }
+            composable("dictionary") { DictionaryScreenContent(onNavigateBack = { navController.popBackStack() }) }
         }
-        composable("settings") {
-            SettingsWithLogToggle(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToDictionary = { navController.navigate("dictionary") },
-            )
-        }
-        composable("transcription") { TranscriptionScreenContent(onNavigateBack = { navController.popBackStack() }) }
-        composable("dictionary") { DictionaryScreenContent(onNavigateBack = { navController.popBackStack() }) }
     }
 }

@@ -87,6 +87,13 @@ class VoiceCommandRecognizerTest {
         assertThat(VoiceCommandRecognizer.recognize("  送出  ")).isEqualTo(VoiceCommand.Enter)
     }
 
+    @Test
+    fun `should ignore sentence punctuation after a command`() {
+        assertThat(VoiceCommandRecognizer.recognize("送出。")).isEqualTo(VoiceCommand.Enter)
+        assertThat(VoiceCommandRecognizer.recognize("Send!")).isEqualTo(VoiceCommand.Enter)
+        assertThat(VoiceCommandRecognizer.recognize("換行？")).isEqualTo(VoiceCommand.Newline)
+    }
+
     // --- Undo ---
     @Test
     fun `should recognize 復原 as Undo`() {

@@ -29,6 +29,8 @@ class SttRepository
             vocabularyHint: String? = null,
             provider: SttProvider = SttProvider.DEFAULT,
             customSttBaseUrl: String? = null,
+            fileName: String = "recording.wav",
+            mimeType: String = "audio/wav",
         ): Result<TranscriptionResult> {
             if (apiKey.isBlank() && provider != SttProvider.Custom) {
                 return Result.failure(IllegalStateException("STT API key is not configured."))
@@ -52,6 +54,8 @@ class SttRepository
                 model = model,
                 vocabularyHint = vocabularyHint,
                 provider = provider,
+                fileName = fileName,
+                mimeType = mimeType,
             )
         }
 
@@ -63,6 +67,8 @@ class SttRepository
             model: String,
             vocabularyHint: String?,
             provider: SttProvider,
+            fileName: String,
+            mimeType: String,
         ): Result<TranscriptionResult> {
             repeat(MAX_ATTEMPTS) { attempt ->
                 try {
@@ -75,6 +81,8 @@ class SttRepository
                             model = model,
                             vocabularyHint = vocabularyHint,
                             provider = provider,
+                            fileName = fileName,
+                            mimeType = mimeType,
                         ),
                     )
                 } catch (e: CancellationException) {
@@ -107,12 +115,14 @@ class SttRepository
             model: String,
             vocabularyHint: String?,
             provider: SttProvider,
+            fileName: String,
+            mimeType: String,
         ): TranscriptionResult {
             val filePart =
                 MultipartBody.Part.createFormData(
                     "file",
-                    "recording.wav",
-                    wavBytes.toRequestBody("audio/wav".toMediaType()),
+                    fileName,
+                    wavBytes.toRequestBody(mimeType.toMediaType()),
                 )
             val modelBody = model.toRequestBody(TEXT_PLAIN)
             val format = responseFormatFor(provider, model).toRequestBody(TEXT_PLAIN)

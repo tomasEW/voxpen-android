@@ -1,12 +1,8 @@
 package com.voxpen.app
 
 import android.app.Application
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
-import com.voxpen.app.billing.BillingManager
-import com.voxpen.app.billing.LicenseManager
 import com.voxpen.app.data.local.PreferencesManager
+import com.voxpen.app.data.repository.TranscriptionRepository
 import com.voxpen.app.util.DownloadLogTree
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -18,24 +14,26 @@ import javax.inject.Inject
 
 @HiltAndroidApp
 class VoxPenApplication : Application() {
-    @Inject lateinit var billingManager: BillingManager
-    @Inject lateinit var licenseManager: LicenseManager
     @Inject lateinit var preferencesManager: PreferencesManager
+    @Inject lateinit var transcriptionRepository: TranscriptionRepository
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.DEBUG) Timber.plant(Timber.DebugTree())
-        Timber.plant(DownloadLogTree(applicationContext, preferencesManager))
-        billingManager.initialize()
-
-        ProcessLifecycleOwner.get().lifecycle.addObserver(
-            object : DefaultLifecycleObserver {
-                override fun onStart(owner: LifecycleOwner) {
-                    applicationScope.launch { licenseManager.validateCachedLicense() }
-                }
-            },
-        )
+        val downloadLogTree = DownloadLogTree(applicationContext)
+        Timber.plant(downloadLogTree)
+        applicationScope.launch {
+            preferencesManager.downloadLoggingEnabledFlow.collect { enabled ->
+                downloadLogTree.setEnabled(enabled)
+            }
+        }
+        applicationScope.launch(Dispatchers.IO) {
+            runCatching { transcriptionRepository.cleanupOrphanedRecordings() }
+                .onFailure { Timber.w(it, "Failed to clean up orphaned recordings") }
+        }
+        // Google Play billing and license validation are retained as legacy source only.
+        // This fork has no active purchase or license flow.
     }
 }

@@ -138,6 +138,8 @@
     <string name="home_usage_voice">Voice: %1$d / %2$d</string>
     <string name="home_usage_refinement">Refine: %1$d / %2$d</string>
     <string name="home_usage_transcription">Transcribe: %1$d / %2$d</string>
+    <string name="usage_unlimited_title">Unlimited usage</string>
+    <string name="usage_unlimited_description">Voice input, refinements, and file transcription are available without a paid plan.</string>
 
     <!-- Keyboard Accessibility -->
     <string name="keyboard_switch">Switch keyboard</string>
@@ -166,65 +168,14 @@
     <string name="edit_mode_active">✏️ Edit: select text, then tap mic</string>
     <string name="editing_text">Editing…</string>
 
-    <!-- Monetization — Usage Limits -->
-    <string name="usage_voice_remaining">Voice input: %1$d remaining today</string>
-    <string name="usage_refinement_remaining">Refinements: %1$d remaining today</string>
-    <string name="usage_transcription_remaining">File transcriptions: %1$d remaining today</string>
-    <string name="free_plan_description">Free plan — 30 voice inputs, 10 refinements, 2 transcriptions daily. Upgrade to Pro for unlimited use.</string>
-    <string name="usage_limit_reached">Daily limit reached</string>
-    <string name="usage_limit_voice">Voice input limit reached for today. Upgrade to Pro for unlimited use.</string>
-    <string name="usage_limit_refinement">Refinement limit reached for today.</string>
-    <string name="usage_limit_transcription">File transcription limit reached for today.</string>
-    <string name="usage_upgrade_pro">Upgrade to Pro</string>
-
-    <!-- Monetization — Pro -->
-    <string name="pro_status_free">Free</string>
-    <string name="pro_status_pro">Pro</string>
-    <string name="pro_upgrade_title">Upgrade to VoxPen Pro</string>
-    <string name="pro_upgrade_description">Unlimited voice input, refinements, and file transcriptions. No ads.</string>
-    <string name="pro_restore_purchase">Restore Purchase</string>
-    <string name="pro_purchase_success">Pro upgrade successful!</string>
-    <string name="pro_purchase_error">Purchase failed. Please try again.</string>
-    <string name="pro_restored">Purchase restored successfully.</string>
-    <string name="pro_section_title">Subscription</string>
-
-    <!-- License activation -->
-    <string name="license_activate_title">Activate License Key</string>
-    <string name="license_activate_hint">Enter your VoxPen Bundle key</string>
-    <string name="license_activate_button">Activate</string>
-    <string name="license_deactivate_button">Deactivate License</string>
-    <string name="license_activating">Activating…</string>
-    <string name="license_error_invalid">Invalid license key</string>
-    <string name="license_error_network">Network error. Please check your connection.</string>
-    <string name="license_status_active">Pro (License)</string>
-
-    <!-- Upgrade prompts -->
-    <string name="upgrade_prompt_title">Daily limit reached</string>
-    <string name="upgrade_prompt_voice">You\'ve used %1$d/%2$d voice inputs</string>
-    <string name="upgrade_prompt_refinement">You\'ve used %1$d/%2$d refinements</string>
-    <string name="upgrade_prompt_file">You\'ve used %1$s/%2$s of file transcription time</string>
-    <string name="upgrade_prompt_reset">Resets in %1$s</string>
-    <string name="upgrade_prompt_button">Upgrade to Pro</string>
-    <string name="upgrade_prompt_license">I have a license key</string>
-
-    <!-- Pro Feature Labels -->
-    <string name="pro_feature_unlimited_voice">Unlimited voice input</string>
-    <string name="pro_feature_unlimited_refinement">Unlimited text refinement</string>
-    <string name="pro_feature_unlimited_transcription">Unlimited file transcription</string>
-    <string name="pro_feature_export_formats">Export as text, SRT, and share</string>
-    <string name="pro_feature_all_providers">All STT providers</string>
-    <string name="pro_feature_all_languages">All language options</string>
-    <string name="pro_feature_custom_prompts">Custom refinement prompts</string>
-
     <!-- Dictionary / Custom Vocabulary -->
     <string name="dictionary_title">Custom Vocabulary</string>
     <string name="dictionary_add_hint">Add a word…</string>
     <string name="dictionary_add_button">Add</string>
     <string name="dictionary_count">%1$d / %2$d words</string>
-    <string name="dictionary_count_unlimited">%1$d words</string>
     <string name="dictionary_empty">Add names, places, and terms to improve voice recognition accuracy</string>
     <string name="dictionary_duplicate">Word already exists</string>
-    <string name="dictionary_upgrade">Upgrade to Pro for unlimited vocabulary</string>
+    <string name="dictionary_limit_hint">The dictionary is limited to %1$d entries to keep recognition prompts focused.</string>
     <string name="dictionary_help">Words you add here help the voice engine recognize names, places, and special terms more accurately.</string>
 
     <!-- Tone styles -->

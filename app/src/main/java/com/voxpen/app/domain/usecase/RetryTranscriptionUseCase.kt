@@ -8,6 +8,7 @@ import com.voxpen.app.data.repository.SttRepository
 import com.voxpen.app.data.repository.TranscriptionRepository
 import com.voxpen.app.util.AudioChunker
 import com.voxpen.app.util.LiveAudioChunker
+import com.voxpen.app.util.TranscriptionTextJoiner
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -68,7 +69,7 @@ class RetryTranscriptionUseCase(
                 onFailure = { return Result.failure(it) },
             )
         }
-        val text = transcriptions.filter { it.isNotBlank() }.joinToString(" ")
+        val text = TranscriptionTextJoiner.join(transcriptions, language)
         val completed =
             transcriptionRepository.markCompletedAfterRetry(id, text)
                 ?: return Result.failure(IllegalArgumentException("Transcription not found"))

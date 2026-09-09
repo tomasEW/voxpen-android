@@ -35,6 +35,7 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(
                 HttpLoggingInterceptor().apply {
+                    redactHeader("Authorization")
                     level =
                         if (BuildConfig.DEBUG) {
                             HttpLoggingInterceptor.Level.HEADERS

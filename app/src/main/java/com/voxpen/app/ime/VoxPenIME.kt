@@ -35,11 +35,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 @Suppress("TooManyFunctions")
 class VoxPenIME : InputMethodService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var inputViewScope: CoroutineScope? = null
     private lateinit var actionHandler: KeyboardActionHandler
     private lateinit var recordingController: RecordingController
     private lateinit var audioRecorder: AudioRecorder
@@ -92,7 +94,8 @@ class VoxPenIME : InputMethodService() {
         }
     }
 
-    override fun onCreateInputView(): View {
+    override fun onCreate() {
+        super.onCreate()
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, VoxPenIMEEntryPoint::class.java)
         audioRecorder = AudioRecorder(this)
         audioManager = getSystemService(AudioManager::class.java)
@@ -113,21 +116,54 @@ class VoxPenIME : InputMethodService() {
                 override fun transcriptionFailed(message: String?): String = message ?: getString(R.string.transcription_failed)
             },
         )
+    }
+
+    override fun onCreateInputView(): View {
+        inputViewScope?.cancel()
+        val viewScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        inputViewScope = viewScope
+        previousUiState = ImeUiState.Idle
         actionHandler = KeyboardActionHandler(
             onSendKeyEvent = { keyCode -> sendDownUpKeyEvents(keyCode) },
             onSwitchKeyboard = { switchKeyboardOrShowPicker() },
             onOpenSettings = { launchSettings() }, onMicTap = { handleMicTap() },
         )
         val view = layoutInflater.inflate(R.layout.keyboard_view, null)
-        bindViews(view); bindButtons(view); observeUiState()
-        serviceScope.launch { if (!preferencesManager.keyboardTooltipsShownFlow.first()) { showKeyboardTooltips(view); preferencesManager.setKeyboardTooltipsShown(true) } }
-        serviceScope.launch { preferencesManager.toneStyleFlow.collect { effectiveTone = it; updateToneButton() } }
-        serviceScope.launch { preferencesManager.autoToneEnabledFlow.collect { autoToneEnabled = it } }
-        serviceScope.launch { preferencesManager.customAppToneRulesFlow.collect { customAppToneRules = it } }
-        serviceScope.launch { preferencesManager.translationEnabledFlow.collect { translationEnabled = it; updateTranslationIndicator() } }
-        serviceScope.launch { preferencesManager.translationTargetLanguageFlow.collect { translationTargetLanguage = it; updateTranslationIndicator() } }
-        serviceScope.launch { preferencesManager.languageFlow.collect { currentSttLanguage = it; updateTranslationIndicator() } }
+        bindViews(view); bindButtons(view); observeUiState(viewScope)
+        viewScope.launch { if (!preferencesManager.keyboardTooltipsShownFlow.first()) { showKeyboardTooltips(view); preferencesManager.setKeyboardTooltipsShown(true) } }
+        viewScope.launch { preferencesManager.toneStyleFlow.collect { effectiveTone = it; updateToneButton() } }
+        viewScope.launch { preferencesManager.autoToneEnabledFlow.collect { autoToneEnabled = it } }
+        viewScope.launch { preferencesManager.customAppToneRulesFlow.collect { customAppToneRules = it } }
+        viewScope.launch { preferencesManager.translationEnabledFlow.collect { translationEnabled = it; updateTranslationIndicator() } }
+        viewScope.launch { preferencesManager.translationTargetLanguageFlow.collect { translationTargetLanguage = it; updateTranslationIndicator() } }
+        viewScope.launch { preferencesManager.languageFlow.collect { currentSttLanguage = it; updateTranslationIndicator() } }
         return view
+    }
+
+    override fun onDestroyInputView() {
+        if (::recordingController.isInitialized && recordingController.uiState.value == ImeUiState.Recording) {
+            stopRecording()
+        }
+        inputViewScope?.cancel()
+        inputViewScope = null
+        stopMicPulse()
+        timerHandler.removeCallbacks(timerRunnable)
+        candidateBar = null
+        candidateStatusRow = null
+        candidateText = null
+        candidateProgress = null
+        candidateOriginal = null
+        candidateRefinedRow = null
+        candidateRefined = null
+        refineProgress = null
+        copyStatusButton = null
+        copyRefinedButton = null
+        micButton = null
+        toneButton = null
+        translationIndicatorRow = null
+        translationLabel = null
+        translationCloseButton = null
+        super.onDestroyInputView()
     }
 
     private fun bindViews(view: View) {
@@ -165,14 +201,14 @@ class VoxPenIME : InputMethodService() {
     }
 
     @Suppress("ClickableViewAccessibility")
-    private fun setupMicButton(micBtn: ImageButton?) { micBtn ?: return; serviceScope.launch { when (preferencesManager.recordingModeFlow.first()) { RecordingMode.TAP_TO_TOGGLE -> micBtn.setOnClickListener { handleMicTap() }; RecordingMode.HOLD_TO_RECORD -> micBtn.setOnTouchListener { _, e -> when (e.action) { MotionEvent.ACTION_DOWN -> { startRecording(); true }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { stopRecording(); true }; else -> false } } } } }
+    private fun setupMicButton(micBtn: ImageButton?) { micBtn ?: return; (inputViewScope ?: serviceScope).launch { when (preferencesManager.recordingModeFlow.first()) { RecordingMode.TAP_TO_TOGGLE -> micBtn.setOnClickListener { handleMicTap() }; RecordingMode.HOLD_TO_RECORD -> micBtn.setOnTouchListener { _, e -> when (e.action) { MotionEvent.ACTION_DOWN -> { startRecording(); true }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { stopRecording(); true }; else -> false } } } } }
 
     private fun handleMicTap() { when (recordingController.uiState.value) { ImeUiState.Idle, is ImeUiState.Error, is ImeUiState.Result, is ImeUiState.Refined, is ImeUiState.CommandDetected, is ImeUiState.EditResult -> startRecording(); ImeUiState.Recording -> stopRecording(); ImeUiState.Processing, is ImeUiState.Refining, ImeUiState.Editing, is ImeUiState.EditInstruction -> {} } }
     private fun startRecording() { if (!audioRecorder.hasPermission()) { candidateBar?.visibility = View.VISIBLE; candidateText?.text = getString(R.string.mic_permission_required); candidateProgress?.visibility = View.GONE; return }; requestAudioDucking(); recordingController.onStartRecording { audioRecorder.startRecording() } }
-    private fun stopRecording() { abandonAudioDucking(); serviceScope.launch { recordingController.onStopRecording({ audioRecorder.stopRecording() }, preferencesManager.languageFlow.first(), isEditMode, effectiveTone) } }
+    private fun stopRecording() { abandonAudioDucking(); serviceScope.launch { val language = preferencesManager.languageFlow.first(); val editMode = isEditMode; withContext(Dispatchers.IO) { recordingController.onStopRecording({ audioRecorder.stopRecording() }, language, editMode, effectiveTone) } } }
     private fun requestAudioDucking() { val r = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()).build(); audioFocusRequest = r; audioManager?.requestAudioFocus(r) }
     private fun abandonAudioDucking() { audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }; audioFocusRequest = null }
-    private fun observeUiState() { serviceScope.launch { recordingController.uiState.collect { updateUi(it) } } }
+    private fun observeUiState(scope: CoroutineScope) { scope.launch { recordingController.uiState.collect { updateUi(it) } } }
     private fun startMicPulse(micBtn: ImageButton) { val x=android.animation.ObjectAnimator.ofFloat(micBtn,"scaleX",1f,1.15f,1f); val y=android.animation.ObjectAnimator.ofFloat(micBtn,"scaleY",1f,1.15f,1f); val a=android.animation.ObjectAnimator.ofFloat(micBtn,"alpha",1f,.7f,1f); micPulseAnimator=android.animation.AnimatorSet().apply { playTogether(x,y,a); duration=800; interpolator=android.view.animation.AccelerateDecelerateInterpolator(); addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(animation:android.animation.Animator){if(recordingController.uiState.value==ImeUiState.Recording)start()}}); start() } }
     private fun stopMicPulse(){micPulseAnimator?.cancel();micPulseAnimator=null;micButton?.apply{scaleX=1f;scaleY=1f;alpha=1f}}
     private fun performHaptic(type:Int){micButton?.performHapticFeedback(type)}
@@ -219,5 +255,5 @@ class VoxPenIME : InputMethodService() {
     private fun launchSettings(){startActivity(Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}
     private fun updateToneButton(){toneButton?.text=effectiveTone.emoji}
     override fun onStartInput(info:EditorInfo,restarting:Boolean){super.onStartInput(info,restarting);if(autoToneEnabled){AppToneDetector.detect(info.packageName?:"",info.inputType,customAppToneRules)?.let{effectiveTone=it}};updateToneButton()}
-    override fun onDestroy(){stopMicPulse();timerHandler.removeCallbacks(timerRunnable);abandonAudioDucking();audioRecorder.release();recordingController.destroy();serviceScope.cancel();super.onDestroy()}
+    override fun onDestroy(){stopMicPulse();timerHandler.removeCallbacks(timerRunnable);abandonAudioDucking();inputViewScope?.cancel();if(::audioRecorder.isInitialized)audioRecorder.release();if(::recordingController.isInitialized)recordingController.destroy();serviceScope.cancel();super.onDestroy()}
 }

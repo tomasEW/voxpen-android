@@ -5,6 +5,7 @@ import kotlin.math.ceil
 
 object VocabularyPromptBuilder {
     private const val WHISPER_TOKEN_BUDGET = 200
+    private const val LLM_VOCABULARY_TOKEN_BUDGET = 512
 
     fun buildWhisperPrompt(
         language: SttLanguage,
@@ -36,29 +37,45 @@ object VocabularyPromptBuilder {
     ): String {
         if (vocabulary.isEmpty()) return ""
 
-        val words = vocabulary.joinToString(", ")
-        return when (language) {
+        val prefix = when (language) {
             SttLanguage.English ->
-                "\nCustom dictionary (voice recognition may produce near-homophone errors, please correct accordingly): $words"
+                "\nCustom dictionary (voice recognition may produce near-homophone errors, please correct accordingly):"
             SttLanguage.Japanese ->
-                "\nカスタム辞書（音声認識で類似音の誤変換が発生する可能性があります。以下の語彙で修正してください）：$words"
+                "\nカスタム辞書（音声認識で類似音の誤変換が発生する可能性があります。以下の語彙で修正してください）："
             SttLanguage.Korean ->
-                "\n사용자 사전 (음성 인식에서 유사 발음 오류가 발생할 수 있습니다. 다음 단어로 수정해 주세요): $words"
+                "\n사용자 사전 (음성 인식에서 유사 발음 오류가 발생할 수 있습니다. 다음 단어로 수정해 주세요):"
             SttLanguage.French ->
-                "\nDictionnaire personnalisé (la reconnaissance vocale peut produire des erreurs d'homophones, veuillez corriger en conséquence) : $words"
+                "\nDictionnaire personnalisé (la reconnaissance vocale peut produire des erreurs d'homophones, veuillez corriger en conséquence) :"
             SttLanguage.German ->
-                "\nBenutzerwörterbuch (Spracherkennung kann Homophon-Fehler erzeugen, bitte entsprechend korrigieren): $words"
+                "\nBenutzerwörterbuch (Spracherkennung kann Homophon-Fehler erzeugen, bitte entsprechend korrigieren):"
             SttLanguage.Spanish ->
-                "\nDiccionario personalizado (el reconocimiento de voz puede producir errores de homófonos, corrija en consecuencia): $words"
+                "\nDiccionario personalizado (el reconocimiento de voz puede producir errores de homófonos, corrija en consecuencia):"
             SttLanguage.Vietnamese ->
-                "\nTừ điển tùy chỉnh (nhận dạng giọng nói có thể tạo lỗi đồng âm, vui lòng sửa theo danh sách sau): $words"
+                "\nTừ điển tùy chỉnh (nhận dạng giọng nói có thể tạo lỗi đồng âm, vui lòng sửa theo danh sách sau):"
             SttLanguage.Indonesian ->
-                "\nKamus kustom (pengenalan suara mungkin menghasilkan kesalahan homofon, mohon koreksi sesuai daftar berikut): $words"
+                "\nKamus kustom (pengenalan suara mungkin menghasilkan kesalahan homofon, mohon koreksi sesuai daftar berikut):"
             SttLanguage.Thai ->
-                "\nพจนานุกรมกำหนดเอง (การรู้จำเสียงอาจเกิดข้อผิดพลาดจากคำพ้องเสียง กรุณาแก้ไขตามรายการต่อไปนี้): $words"
+                "\nพจนานุกรมกำหนดเอง (การรู้จำเสียงอาจเกิดข้อผิดพลาดจากคำพ้องเสียง กรุณาแก้ไขตามรายการต่อไปนี้):"
             else ->
-                "\n自定義詞典（語音辨識可能產生音近詞錯誤，請依此修正）：$words"
+                "\n自定義詞典（語音辨識可能產生音近詞錯誤，請依此修正）："
         }
+        val remainingBudget = LLM_VOCABULARY_TOKEN_BUDGET - estimateTokens(prefix)
+        if (remainingBudget <= 0) return prefix
+
+        val selected = mutableListOf<String>()
+        var usedTokens = 0
+        for (word in vocabulary) {
+            val normalizedWord = word.trim()
+            if (normalizedWord.isEmpty()) continue
+            val wordTokens = estimateTokens(normalizedWord) + 1
+            if (usedTokens + wordTokens > remainingBudget) break
+            selected.add(normalizedWord)
+            usedTokens += wordTokens
+        }
+        if (selected.isEmpty()) return ""
+
+        val words = selected.joinToString(", ")
+        return "$prefix $words"
     }
 
     fun estimateTokens(text: String): Int {

@@ -73,6 +73,17 @@ class VocabularyPromptBuilderTest {
     }
 
     @Test
+    fun `should cap LLM vocabulary suffix to a token budget`() {
+        val longWords = (1..500).map { "專有名詞$it" }
+
+        val result = VocabularyPromptBuilder.buildLlmSuffix(SttLanguage.Chinese, longWords)
+
+        assertThat(VocabularyPromptBuilder.estimateTokens(result)).isAtMost(512)
+        assertThat(result).contains(longWords.first())
+        assertThat(result).doesNotContain(longWords.last())
+    }
+
+    @Test
     fun `should estimate CJK tokens as roughly 2 per char`() {
         val tokens = VocabularyPromptBuilder.estimateTokens("語墨")
         assertThat(tokens).isEqualTo(4)

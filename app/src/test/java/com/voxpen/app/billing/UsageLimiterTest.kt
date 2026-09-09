@@ -33,8 +33,8 @@ class UsageLimiterTest {
     }
 
     @Test
-    fun `voice input limit should be 30`() {
-        assertThat(UsageLimiter.FREE_VOICE_INPUT_LIMIT).isEqualTo(30)
+    fun `voice input limit should use the unlimited sentinel`() {
+        assertThat(UsageLimiter.FREE_VOICE_INPUT_LIMIT).isEqualTo(9999)
     }
 
     @Test
@@ -49,8 +49,8 @@ class UsageLimiterTest {
     }
 
     @Test
-    fun `refinement limit should be 10`() {
-        assertThat(UsageLimiter.FREE_REFINEMENT_LIMIT).isEqualTo(10)
+    fun `refinement limit should use the unlimited sentinel`() {
+        assertThat(UsageLimiter.FREE_REFINEMENT_LIMIT).isEqualTo(9999)
     }
 
     @Test
@@ -65,15 +65,15 @@ class UsageLimiterTest {
     }
 
     @Test
-    fun `file transcription limit should be 2`() {
-        assertThat(UsageLimiter.FREE_FILE_TRANSCRIPTION_LIMIT).isEqualTo(2)
+    fun `file transcription limit should use the unlimited sentinel`() {
+        assertThat(UsageLimiter.FREE_FILE_TRANSCRIPTION_LIMIT).isEqualTo(9999)
     }
 
     @Test
     fun `remainingFileTranscriptions should decrease after incrementing`() {
-        assertThat(limiter.remainingFileTranscriptions()).isEqualTo(2)
+        assertThat(limiter.remainingFileTranscriptions()).isEqualTo(UsageLimiter.FREE_FILE_TRANSCRIPTION_LIMIT)
         limiter.incrementFileTranscription()
-        assertThat(limiter.remainingFileTranscriptions()).isEqualTo(1)
+        assertThat(limiter.remainingFileTranscriptions()).isEqualTo(UsageLimiter.FREE_FILE_TRANSCRIPTION_LIMIT - 1)
     }
 
     @Test

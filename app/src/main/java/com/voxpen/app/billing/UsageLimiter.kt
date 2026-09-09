@@ -68,6 +68,8 @@ class UsageLimiter
         }
 
         companion object {
+            // The fork keeps this legacy limiter for compatibility, but the effective product
+            // policy is unlimited use. These sentinel values are deliberately far above normal use.
             const val FREE_VOICE_INPUT_LIMIT = 9999
             const val FREE_REFINEMENT_LIMIT = 9999
             const val FREE_FILE_TRANSCRIPTION_LIMIT = 9999

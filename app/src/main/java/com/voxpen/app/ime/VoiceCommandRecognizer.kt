@@ -1,6 +1,7 @@
 package com.voxpen.app.ime
 
 import com.voxpen.app.data.model.VoiceCommand
+import java.util.Locale
 
 object VoiceCommandRecognizer {
     private val COMMANDS: Map<String, VoiceCommand> = buildMap {
@@ -46,6 +47,18 @@ object VoiceCommandRecognizer {
         }
     }
 
-    /** Returns a [VoiceCommand] if [text] exactly matches a known command, null otherwise. */
-    fun recognize(text: String): VoiceCommand? = COMMANDS[text.trim().lowercase()]
+    /** Returns a [VoiceCommand] if [text] matches a known command, null otherwise. */
+    fun recognize(text: String): VoiceCommand? = COMMANDS[normalize(text)]
+
+    private fun normalize(text: String): String =
+        text
+            .trim()
+            .lowercase(Locale.ROOT)
+            .trimEnd { it.isWhitespace() || it in TRAILING_PUNCTUATION }
+
+    private val TRAILING_PUNCTUATION = setOf(
+        '.', ',', '!', '?', ';', ':',
+        '。', '，', '！', '？', '；', '：', '、', '…',
+        ')', ']', '}', '）', '］', '｝', '」', '』', '》',
+    )
 }

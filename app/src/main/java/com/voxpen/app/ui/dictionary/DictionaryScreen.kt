@@ -16,8 +16,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,7 +48,6 @@ fun DictionaryScreenContent(
 ) {
     val entries by viewModel.entries.collectAsState()
     val count by viewModel.count.collectAsState()
-    val isPro by viewModel.isPro.collectAsState()
     val isLimitReached by viewModel.isLimitReached.collectAsState()
     val showDuplicate by viewModel.showDuplicateToast.collectAsState()
     var inputText by remember { mutableStateOf("") }
@@ -127,33 +124,18 @@ fun DictionaryScreenContent(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text =
-                    if (isPro) {
-                        stringResource(R.string.dictionary_count_unlimited, count)
-                    } else {
-                        stringResource(R.string.dictionary_count, count, limit)
-                    },
+                text = stringResource(R.string.dictionary_count, count, limit),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             if (isLimitReached) {
-                Card(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                    colors =
-                        CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                ) {
-                    Text(
-                        stringResource(R.string.dictionary_upgrade),
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+                Text(
+                    stringResource(R.string.dictionary_limit_hint, limit),
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))

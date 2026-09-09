@@ -1,6 +1,8 @@
 package com.voxpen.app.util
 
 import com.google.common.truth.Truth.assertThat
+import java.io.ByteArrayInputStream
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
 class AudioChunkerTest {
@@ -95,5 +97,52 @@ class AudioChunkerTest {
     fun `should reject small data as not WAV`() {
         val tinyData = ByteArray(10)
         assertThat(AudioChunker.isWav(tinyData)).isFalse()
+    }
+
+    @Test
+    fun `should stream WAV chunks without loading the whole file`() = runTest {
+        val pcmData = ByteArray(200_000) { (it % 256).toByte() }
+        val wavBytes = AudioEncoder.pcmToWav(pcmData, 16000, 1, 16)
+        val chunks = mutableListOf<ByteArray>()
+
+        val totalBytes = AudioChunker.streamChunks(
+            ByteArrayInputStream(wavBytes),
+            maxChunkBytes = 50_000,
+        ) { chunks.add(it) }
+
+        assertThat(totalBytes).isEqualTo(wavBytes.size.toLong())
+        assertThat(chunks.size).isGreaterThan(1)
+        chunks.forEach {
+            assertThat(AudioChunker.isWav(it)).isTrue()
+            assertThat(it.size).isAtMost(50_000)
+        }
+    }
+
+    @Test
+    fun `should preserve a small opaque file as one upload`() = runTest {
+        val data = ByteArray(100) { it.toByte() }
+        val chunks = mutableListOf<ByteArray>()
+
+        val totalBytes = AudioChunker.streamChunks(
+            ByteArrayInputStream(data),
+            maxChunkBytes = 200,
+        ) { chunks.add(it) }
+
+        assertThat(totalBytes).isEqualTo(100)
+        assertThat(chunks).hasSize(1)
+        assertThat(chunks.single()).isEqualTo(data)
+    }
+
+    @Test
+    fun `should reject an opaque file that would need unsafe byte slicing`() = runTest {
+        val data = ByteArray(201)
+
+        val error = try {
+            AudioChunker.streamChunks(ByteArrayInputStream(data), maxChunkBytes = 200) { }
+            null
+        } catch (throwable: Throwable) {
+            throwable
+        }
+        assertThat(error).isInstanceOf(IllegalArgumentException::class.java)
     }
 }

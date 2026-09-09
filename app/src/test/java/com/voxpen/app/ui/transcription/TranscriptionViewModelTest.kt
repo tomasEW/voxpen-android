@@ -2,14 +2,11 @@ package com.voxpen.app.ui.transcription
 
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
-import com.voxpen.app.billing.ProSource
-import com.voxpen.app.billing.ProStatus
-import com.voxpen.app.billing.ProStatusResolver
-import com.voxpen.app.billing.UsageLimiter
 import com.voxpen.app.data.local.ApiKeyManager
 import com.voxpen.app.data.local.PreferencesManager
 import com.voxpen.app.data.local.RecordingStore
 import com.voxpen.app.data.local.TranscriptionEntity
+import com.voxpen.app.data.repository.DictionaryRepository
 import com.voxpen.app.data.model.SttProvider
 import com.voxpen.app.data.remote.SttApi
 import com.voxpen.app.data.remote.SttApiFactory
@@ -17,6 +14,7 @@ import com.voxpen.app.data.remote.WhisperResponse
 import com.voxpen.app.data.repository.SttRepository
 import com.voxpen.app.data.repository.TranscriptionRepository
 import com.voxpen.app.domain.usecase.RetryTranscriptionUseCase
+import com.voxpen.app.domain.usecase.TranscribeFileUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -38,25 +36,23 @@ import org.junit.jupiter.api.Test
 class TranscriptionViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var transcriptionRepository: TranscriptionRepository
-    private lateinit var proStatusResolver: ProStatusResolver
-    private lateinit var usageLimiter: UsageLimiter
     private lateinit var retryTranscriptionUseCase: RetryTranscriptionUseCase
+    private lateinit var transcribeFileUseCase: TranscribeFileUseCase
+    private lateinit var dictionaryRepository: DictionaryRepository
     private lateinit var apiKeyManager: ApiKeyManager
     private lateinit var preferencesManager: PreferencesManager
     private lateinit var viewModel: TranscriptionViewModel
-    private val proStatusFlow = MutableStateFlow<ProStatus>(ProStatus.Free)
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         transcriptionRepository = mockk(relaxed = true)
-        proStatusResolver = mockk(relaxed = true)
-        usageLimiter = UsageLimiter()
         retryTranscriptionUseCase = mockk(relaxed = true)
+        transcribeFileUseCase = mockk(relaxed = true)
+        dictionaryRepository = mockk(relaxed = true)
         apiKeyManager = mockk(relaxed = true)
         preferencesManager = mockk(relaxed = true)
         every { transcriptionRepository.getAll() } returns flowOf(emptyList())
-        every { proStatusResolver.proStatus } returns proStatusFlow
         every { preferencesManager.sttProviderFlow } returns MutableStateFlow<SttProvider>(SttProvider.Groq)
         every { preferencesManager.sttModelFlow } returns MutableStateFlow(PreferencesManager.DEFAULT_STT_MODEL)
         every { preferencesManager.customSttBaseUrlFlow } returns MutableStateFlow("")
@@ -72,9 +68,9 @@ class TranscriptionViewModelTest {
     private fun createViewModel(): TranscriptionViewModel =
         TranscriptionViewModel(
             transcriptionRepository,
-            proStatusResolver,
-            usageLimiter,
             retryTranscriptionUseCase,
+            transcribeFileUseCase,
+            dictionaryRepository,
             apiKeyManager,
             preferencesManager,
         )
@@ -192,59 +188,6 @@ class TranscriptionViewModelTest {
         }
 
     @Test
-    fun `should show upgrade prompt when limit reached for Free users`() =
-        runTest {
-            repeat(UsageLimiter.FREE_FILE_TRANSCRIPTION_LIMIT) { usageLimiter.incrementFileTranscription() }
-            viewModel = createViewModel()
-
-            viewModel.onFileSelected(mockk())
-
-            viewModel.uiState.test {
-                val state = awaitItem()
-                assertThat(state.showUpgradePrompt).isTrue()
-                assertThat(state.isTranscribing).isFalse()
-            }
-        }
-
-    @Test
-    fun `should allow file transcription for Pro users even at limit`() =
-        runTest {
-            proStatusFlow.value = ProStatus.Pro(ProSource.GOOGLE_PLAY)
-            repeat(UsageLimiter.FREE_FILE_TRANSCRIPTION_LIMIT) { usageLimiter.incrementFileTranscription() }
-            viewModel = createViewModel()
-
-            viewModel.onFileSelected(mockk())
-
-            viewModel.uiState.test {
-                val state = awaitItem()
-                assertThat(state.isTranscribing).isTrue()
-                assertThat(state.error).isNull()
-            }
-        }
-
-    @Test
-    fun `should increment usage after transcription complete for Free users`() =
-        runTest {
-            viewModel = createViewModel()
-            val entity =
-                TranscriptionEntity(
-                    id = 1,
-                    fileName = "a.wav",
-                    originalText = "Hello",
-                    language = "en",
-                    createdAt = 1000L,
-                )
-
-            viewModel.onTranscriptionComplete(entity)
-
-            viewModel.uiState.test {
-                val state = awaitItem()
-                assertThat(state.remainingFileTranscriptions)
-                    .isEqualTo(UsageLimiter.FREE_FILE_TRANSCRIPTION_LIMIT - 1)
-            }
-        }
-
-    @Test
     fun `should increment voice usage after successful live retry for Free users`() =
         runTest {
             val retryRepository: TranscriptionRepository = mockk()
@@ -294,30 +237,6 @@ class TranscriptionViewModelTest {
 
             viewModel.uiState.test {
                 assertThat(awaitItem().selectedTranscription).isEqualTo(entity)
-            }
-            assertThat(usageLimiter.remainingVoiceInputs())
-                .isEqualTo(UsageLimiter.FREE_VOICE_INPUT_LIMIT - 1)
-        }
-
-    @Test
-    fun `should block live retry when Free voice limit is reached`() =
-        runTest {
-            repeat(UsageLimiter.FREE_VOICE_INPUT_LIMIT) {
-                usageLimiter.incrementVoiceInput()
-            }
-            viewModel = createViewModel()
-
-            viewModel.retryTranscription(7)
-            advanceUntilIdle()
-            testDispatcher.scheduler.advanceUntilIdle()
-
-            viewModel.uiState.test {
-                val state = awaitItem()
-                assertThat(state.error).contains("Daily limit")
-                assertThat(state.retryingId).isNull()
-            }
-            coVerify(exactly = 0) {
-                retryTranscriptionUseCase(any(), any(), any(), any(), any())
             }
         }
 }

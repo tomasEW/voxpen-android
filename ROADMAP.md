@@ -2,6 +2,8 @@
 
 Date: 2026-02-28
 
+> This document contains upstream planning history. For this fork, the current behavior is: billing UI and license validation are disabled; usage is presented as unlimited; only the IME final Chinese output is normalized to Simplified Chinese; file/SRT/translation/LLM outputs are unchanged; and the custom vocabulary limit remains 10 entries for prompt-size control.
+
 ---
 
 ## Feature Comparison
@@ -15,7 +17,7 @@ Date: 2026-02-28
 | Mid-sentence self-correction | LLM prompt-based | AI-based |
 | Auto-format lists / structure | LLM prompt-based | AI-based |
 | 6-minute recording limit | ✅ with countdown warning | ✅ |
-| Custom vocabulary / dictionary | ✅ (50 free / ∞ Pro) | ✅ personal dictionary |
+| Custom vocabulary / dictionary | ✅ (10 entries; prompt-size guard) | ✅ personal dictionary |
 | Mixed-language code-switching | ✅ auto-detect mode | ✅ |
 | On-device history | ✅ Room database | ✅ |
 | File transcription | ✅ with SRT export | ❌ (keyboard-only) |
@@ -31,8 +33,8 @@ Date: 2026-02-28
 | **Self-hosted STT** | ✅ custom endpoint | ❌ |
 | **Multi-LLM provider** | ✅ 4 providers | ❌ opaque |
 | **File transcription + SRT** | ✅ full workflow | ❌ |
-| **zh-TW focus** | ✅ 繁體 prompts, vocabulary | 通用 |
-| **One-time Pro purchase** | ✅ | ❌ $12/mo subscription |
+| **Chinese IME output** | ✅ final Chinese commit is Simplified; existing prompts and file/LLM outputs preserved | 通用 |
+| **One-time Pro purchase** | Disabled in this fork | ❌ $12/mo subscription |
 | **Pricing transparency** | You pay API costs directly | Opaque cloud costs |
 
 ---
@@ -180,7 +182,7 @@ Shipped as part of A2 — see above.
 VoxPen's core differentiators vs Typeless are:
 1. **BYOK** — Typeless is a $12/month black box; VoxPen puts the user in control of API costs and providers
 2. **File transcription + SRT** — Typeless is keyboard-only
-3. **zh-TW depth** — Typeless is generic; VoxPen has 繁體-specific prompts, vocabulary, and UX
+3. **Chinese IME workflow** — the fork keeps its existing Chinese prompts and vocabulary behavior, then normalizes only the IME final commit to Simplified Chinese
 4. **Translation Mode** — shipped; speak in one language, output in another ✅
 5. **Speak to Edit** — shipped; select text → voice-instruct LLM to rewrite it ✅
 6. **Voice Commands** — shipped; 10 trilingual commands (send, delete, newline, space, undo, select all, copy, paste, cut, clear all) ✅
