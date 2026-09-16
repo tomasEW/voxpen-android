@@ -54,7 +54,6 @@ class VoxPenIME : InputMethodService() {
     @Volatile private var effectiveTone: ToneStyle = ToneStyle.DEFAULT
     @Volatile private var autoToneEnabled: Boolean = PreferencesManager.DEFAULT_AUTO_TONE_ENABLED
     @Volatile private var customAppToneRules: Map<String, ToneStyle> = emptyMap()
-
     private var candidateBar: LinearLayout? = null
     private var candidateStatusRow: LinearLayout? = null
     private var candidateText: TextView? = null
@@ -70,11 +69,9 @@ class VoxPenIME : InputMethodService() {
     private var translationIndicatorRow: LinearLayout? = null
     private var translationLabel: TextView? = null
     private var translationCloseButton: ImageButton? = null
-
     @Volatile private var translationEnabled: Boolean = PreferencesManager.DEFAULT_TRANSLATION_ENABLED
     @Volatile private var translationTargetLanguage: SttLanguage = PreferencesManager.DEFAULT_TRANSLATION_TARGET_LANGUAGE
     @Volatile private var currentSttLanguage: SttLanguage = SttLanguage.Auto
-
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var micPulseAnimator: android.animation.AnimatorSet? = null
@@ -97,12 +94,9 @@ class VoxPenIME : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, VoxPenIMEEntryPoint::class.java)
-        audioRecorder = AudioRecorder(this)
-        audioManager = getSystemService(AudioManager::class.java)
-        preferencesManager = entryPoint.preferencesManager()
-        proStatusResolver = entryPoint.proStatusResolver()
-        editTextUseCase = entryPoint.editTextUseCase()
-        apiKeyManager = entryPoint.apiKeyManager()
+        audioRecorder = AudioRecorder(this); audioManager = getSystemService(AudioManager::class.java)
+        preferencesManager = entryPoint.preferencesManager(); proStatusResolver = entryPoint.proStatusResolver()
+        editTextUseCase = entryPoint.editTextUseCase(); apiKeyManager = entryPoint.apiKeyManager()
         recordingController = RecordingController(
             transcribeUseCase = entryPoint.transcribeAudioUseCase(), refineTextUseCase = entryPoint.refineTextUseCase(),
             apiKeyManager = entryPoint.apiKeyManager(), preferencesManager = preferencesManager,
@@ -119,17 +113,10 @@ class VoxPenIME : InputMethodService() {
     }
 
     override fun onCreateInputView(): View {
-        inputViewScope?.cancel()
-        val viewScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-        inputViewScope = viewScope
+        inputViewScope?.cancel(); val viewScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate); inputViewScope = viewScope
         previousUiState = ImeUiState.Idle
-        actionHandler = KeyboardActionHandler(
-            onSendKeyEvent = { keyCode -> sendDownUpKeyEvents(keyCode) },
-            onSwitchKeyboard = { switchKeyboardOrShowPicker() },
-            onOpenSettings = { launchSettings() }, onMicTap = { handleMicTap() },
-        )
-        val view = layoutInflater.inflate(R.layout.keyboard_view, null)
-        bindViews(view); bindButtons(view); observeUiState(viewScope)
+        actionHandler = KeyboardActionHandler(onSendKeyEvent = { sendDownUpKeyEvents(it) }, onSwitchKeyboard = { switchKeyboardOrShowPicker() }, onOpenSettings = { launchSettings() }, onMicTap = { handleMicTap() })
+        val view = layoutInflater.inflate(R.layout.keyboard_view, null); bindViews(view); bindButtons(view); observeUiState(viewScope)
         viewScope.launch { if (!preferencesManager.keyboardTooltipsShownFlow.first()) { showKeyboardTooltips(view); preferencesManager.setKeyboardTooltipsShown(true) } }
         viewScope.launch { preferencesManager.toneStyleFlow.collect { effectiveTone = it; updateToneButton() } }
         viewScope.launch { preferencesManager.autoToneEnabledFlow.collect { autoToneEnabled = it } }
@@ -141,110 +128,53 @@ class VoxPenIME : InputMethodService() {
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
-        if (::recordingController.isInitialized && recordingController.uiState.value == ImeUiState.Recording) {
-            stopRecording()
-        }
-        stopMicPulse()
-        timerHandler.removeCallbacks(timerRunnable)
-        super.onFinishInputView(finishingInput)
+        if (::recordingController.isInitialized && recordingController.uiState.value == ImeUiState.Recording) stopRecording()
+        stopMicPulse(); timerHandler.removeCallbacks(timerRunnable); super.onFinishInputView(finishingInput)
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        if (::recordingController.isInitialized && !restarting) recordingController.resetForNewEditor()
         if (::recordingController.isInitialized && micButton != null) {
-            val state = recordingController.uiState.value
-            resetClickListeners()
-            updateCandidateBar(state)
-            updateMicAppearance(state)
-            previousUiState = state
+            val state = recordingController.uiState.value; resetClickListeners(); updateCandidateBar(state); updateMicAppearance(state); previousUiState = state
         }
     }
 
     private fun bindViews(view: View) {
-        candidateBar = view.findViewById(R.id.candidate_bar); candidateStatusRow = view.findViewById(R.id.candidate_status_row)
-        candidateText = view.findViewById(R.id.candidate_text); candidateProgress = view.findViewById(R.id.candidate_progress)
-        candidateOriginal = view.findViewById(R.id.candidate_original); candidateRefinedRow = view.findViewById(R.id.candidate_refined_row)
-        candidateRefined = view.findViewById(R.id.candidate_refined); refineProgress = view.findViewById(R.id.refine_progress)
-        micButton = view.findViewById(R.id.btn_mic); toneButton = view.findViewById(R.id.btn_tone)
-        copyStatusButton = view.findViewById(R.id.btn_copy_status); copyRefinedButton = view.findViewById(R.id.btn_copy_refined)
-        translationIndicatorRow = view.findViewById(R.id.translation_indicator_row); translationLabel = view.findViewById(R.id.translation_label)
-        translationCloseButton = view.findViewById(R.id.btn_translation_close)
+        candidateBar=view.findViewById(R.id.candidate_bar);candidateStatusRow=view.findViewById(R.id.candidate_status_row);candidateText=view.findViewById(R.id.candidate_text);candidateProgress=view.findViewById(R.id.candidate_progress);candidateOriginal=view.findViewById(R.id.candidate_original);candidateRefinedRow=view.findViewById(R.id.candidate_refined_row);candidateRefined=view.findViewById(R.id.candidate_refined);refineProgress=view.findViewById(R.id.refine_progress);micButton=view.findViewById(R.id.btn_mic);toneButton=view.findViewById(R.id.btn_tone);copyStatusButton=view.findViewById(R.id.btn_copy_status);copyRefinedButton=view.findViewById(R.id.btn_copy_refined);translationIndicatorRow=view.findViewById(R.id.translation_indicator_row);translationLabel=view.findViewById(R.id.translation_label);translationCloseButton=view.findViewById(R.id.btn_translation_close)
     }
-
     private fun bindButtons(view: View) {
-        view.findViewById<ImageButton>(R.id.btn_backspace)?.setOnClickListener { actionHandler.handle(KeyboardAction.Backspace) }
-        view.findViewById<ImageButton>(R.id.btn_enter)?.setOnClickListener { actionHandler.handle(KeyboardAction.Enter) }
-        view.findViewById<ImageButton>(R.id.btn_switch)?.let { b ->
-            b.setOnClickListener { actionHandler.handle(KeyboardAction.SwitchKeyboard) }
-            b.setOnLongClickListener { showInputMethodPicker(); true }
-        }
-        view.findViewById<ImageButton>(R.id.btn_settings)?.let { b -> b.setOnClickListener { actionHandler.handle(KeyboardAction.OpenSettings) }; b.setOnLongClickListener { showQuickSettings(it); true } }
-        setupMicButton(view.findViewById(R.id.btn_mic)); view.findViewById<TextView>(R.id.btn_tone)?.setOnClickListener { showTonePopup(it) }
-        view.findViewById<TextView>(R.id.translation_label)?.setOnClickListener { cycleTranslationTarget() }
-        view.findViewById<ImageButton>(R.id.btn_translation_close)?.setOnClickListener { serviceScope.launch { preferencesManager.setTranslationEnabled(false) } }
+        view.findViewById<ImageButton>(R.id.btn_backspace)?.setOnClickListener{actionHandler.handle(KeyboardAction.Backspace)};view.findViewById<ImageButton>(R.id.btn_enter)?.setOnClickListener{actionHandler.handle(KeyboardAction.Enter)}
+        view.findViewById<ImageButton>(R.id.btn_switch)?.let{b->b.setOnClickListener{actionHandler.handle(KeyboardAction.SwitchKeyboard)};b.setOnLongClickListener{showInputMethodPicker();true}}
+        view.findViewById<ImageButton>(R.id.btn_settings)?.let{b->b.setOnClickListener{actionHandler.handle(KeyboardAction.OpenSettings)};b.setOnLongClickListener{showQuickSettings(it);true}}
+        setupMicButton(view.findViewById(R.id.btn_mic));view.findViewById<TextView>(R.id.btn_tone)?.setOnClickListener{showTonePopup(it)};view.findViewById<TextView>(R.id.translation_label)?.setOnClickListener{cycleTranslationTarget()};view.findViewById<ImageButton>(R.id.btn_translation_close)?.setOnClickListener{serviceScope.launch{preferencesManager.setTranslationEnabled(false)}}
     }
-
-    private fun switchKeyboardOrShowPicker(): Boolean {
-        val switched = switchToPreviousInputMethod()
-        if (!switched) showInputMethodPicker()
-        return switched
-    }
-
-    private fun showInputMethodPicker() {
-        getSystemService(InputMethodManager::class.java)?.showInputMethodPicker()
-    }
-
-    @Suppress("ClickableViewAccessibility")
-    private fun setupMicButton(micBtn: ImageButton?) { micBtn ?: return; (inputViewScope ?: serviceScope).launch { when (preferencesManager.recordingModeFlow.first()) { RecordingMode.TAP_TO_TOGGLE -> micBtn.setOnClickListener { handleMicTap() }; RecordingMode.HOLD_TO_RECORD -> micBtn.setOnTouchListener { _, e -> when (e.action) { MotionEvent.ACTION_DOWN -> { startRecording(); true }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { stopRecording(); true }; else -> false } } } } }
-
-    private fun handleMicTap() { when (recordingController.uiState.value) { ImeUiState.Idle, is ImeUiState.Error, is ImeUiState.Result, is ImeUiState.Refined, is ImeUiState.CommandDetected, is ImeUiState.EditResult -> startRecording(); ImeUiState.Recording -> stopRecording(); ImeUiState.Processing, is ImeUiState.Refining, ImeUiState.Editing, is ImeUiState.EditInstruction -> {} } }
-    private fun startRecording() { if (!audioRecorder.hasPermission()) { candidateBar?.visibility = View.VISIBLE; candidateText?.text = getString(R.string.mic_permission_required); candidateProgress?.visibility = View.GONE; return }; requestAudioDucking(); recordingController.onStartRecording { audioRecorder.startRecording() } }
-    private fun stopRecording() { abandonAudioDucking(); serviceScope.launch { val language = preferencesManager.languageFlow.first(); val editMode = isEditMode; withContext(Dispatchers.IO) { recordingController.onStopRecording({ audioRecorder.stopRecording() }, language, editMode, effectiveTone) } } }
-    private fun requestAudioDucking() { val r = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()).build(); audioFocusRequest = r; audioManager?.requestAudioFocus(r) }
-    private fun abandonAudioDucking() { audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }; audioFocusRequest = null }
-    private fun observeUiState(scope: CoroutineScope) { scope.launch { recordingController.uiState.collect { updateUi(it) } } }
-    private fun startMicPulse(micBtn: ImageButton) { val x=android.animation.ObjectAnimator.ofFloat(micBtn,"scaleX",1f,1.15f,1f); val y=android.animation.ObjectAnimator.ofFloat(micBtn,"scaleY",1f,1.15f,1f); val a=android.animation.ObjectAnimator.ofFloat(micBtn,"alpha",1f,.7f,1f); micPulseAnimator=android.animation.AnimatorSet().apply { playTogether(x,y,a); duration=800; interpolator=android.view.animation.AccelerateDecelerateInterpolator(); addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(animation:android.animation.Animator){if(recordingController.uiState.value==ImeUiState.Recording)start()}}); start() } }
+    private fun switchKeyboardOrShowPicker():Boolean{val s=switchToPreviousInputMethod();if(!s)showInputMethodPicker();return s}
+    private fun showInputMethodPicker(){getSystemService(InputMethodManager::class.java)?.showInputMethodPicker()}
+    @Suppress("ClickableViewAccessibility") private fun setupMicButton(micBtn:ImageButton?){micBtn?:return;(inputViewScope?:serviceScope).launch{when(preferencesManager.recordingModeFlow.first()){RecordingMode.TAP_TO_TOGGLE->micBtn.setOnClickListener{handleMicTap()};RecordingMode.HOLD_TO_RECORD->micBtn.setOnTouchListener{_,e->when(e.action){MotionEvent.ACTION_DOWN->{startRecording();true};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{stopRecording();true};else->false}}}}}
+    private fun handleMicTap(){when(recordingController.uiState.value){ImeUiState.Idle,is ImeUiState.Error,is ImeUiState.Result,is ImeUiState.Refined,is ImeUiState.CommandDetected,is ImeUiState.EditResult->startRecording();ImeUiState.Recording->stopRecording();ImeUiState.Processing,is ImeUiState.Refining,ImeUiState.Editing,is ImeUiState.EditInstruction->{}}}
+    private fun startRecording(){if(!audioRecorder.hasPermission()){candidateBar?.visibility=View.VISIBLE;candidateText?.text=getString(R.string.mic_permission_required);candidateProgress?.visibility=View.GONE;return};requestAudioDucking();recordingController.onStartRecording{audioRecorder.startRecording()}}
+    private fun stopRecording(){abandonAudioDucking();serviceScope.launch{val language=preferencesManager.languageFlow.first();val editMode=isEditMode;withContext(Dispatchers.IO){recordingController.onStopRecording({audioRecorder.stopRecording()},language,editMode,effectiveTone)}}}
+    private fun requestAudioDucking(){val r=AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()).build();audioFocusRequest=r;audioManager?.requestAudioFocus(r)}
+    private fun abandonAudioDucking(){audioFocusRequest?.let{audioManager?.abandonAudioFocusRequest(it)};audioFocusRequest=null}
+    private fun observeUiState(scope:CoroutineScope){scope.launch{recordingController.uiState.collect{updateUi(it)}}}
+    private fun startMicPulse(micBtn:ImageButton){val x=android.animation.ObjectAnimator.ofFloat(micBtn,"scaleX",1f,1.15f,1f);val y=android.animation.ObjectAnimator.ofFloat(micBtn,"scaleY",1f,1.15f,1f);val a=android.animation.ObjectAnimator.ofFloat(micBtn,"alpha",1f,.7f,1f);micPulseAnimator=android.animation.AnimatorSet().apply{playTogether(x,y,a);duration=800;interpolator=android.view.animation.AccelerateDecelerateInterpolator();addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(animation:android.animation.Animator){if(recordingController.uiState.value==ImeUiState.Recording)start()}});start()}}
     private fun stopMicPulse(){micPulseAnimator?.cancel();micPulseAnimator=null;micButton?.apply{scaleX=1f;scaleY=1f;alpha=1f}}
     private fun performHaptic(type:Int){micButton?.performHapticFeedback(type)}
     private fun playTone(type:Int){try{val t=android.media.ToneGenerator(AudioManager.STREAM_NOTIFICATION,30);t.startTone(type,100);android.os.Handler(mainLooper).postDelayed({t.release()},200)}catch(_:Exception){}}
     private fun updateUi(state:ImeUiState){if(state==previousUiState)return;previousUiState=state;triggerStateFeedback(state);resetClickListeners();updateCandidateBar(state);updateMicAppearance(state)}
     private fun triggerStateFeedback(state:ImeUiState){when(state){ImeUiState.Recording->{performHaptic(HapticFeedbackConstants.LONG_PRESS);playTone(android.media.ToneGenerator.TONE_PROP_BEEP)};ImeUiState.Processing->{performHaptic(HapticFeedbackConstants.KEYBOARD_TAP);playTone(android.media.ToneGenerator.TONE_PROP_ACK)};is ImeUiState.Result,is ImeUiState.Refined->{if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.R)performHaptic(HapticFeedbackConstants.CONFIRM)else performHaptic(HapticFeedbackConstants.KEYBOARD_TAP)};else->{}}}
     private fun resetClickListeners(){candidateBar?.setOnClickListener(null);candidateOriginal?.setOnClickListener(null);candidateRefinedRow?.setOnClickListener(null);copyStatusButton?.setOnClickListener(null);copyStatusButton?.visibility=View.GONE;copyRefinedButton?.setOnClickListener(null);copyRefinedButton?.visibility=View.GONE}
-
-    private fun updateCandidateBar(state:ImeUiState){when(state){
-        ImeUiState.Idle->{timerHandler.removeCallbacks(timerRunnable);if(translationEnabled){candidateBar?.visibility=View.VISIBLE;candidateStatusRow?.visibility=View.GONE;candidateOriginal?.visibility=View.GONE;candidateRefinedRow?.visibility=View.GONE}else if(!isEditMode)candidateBar?.visibility=View.GONE}
-        ImeUiState.Recording->{showStatusRow(getString(R.string.recording),false);recordingStartTime=System.currentTimeMillis();timerHandler.post(timerRunnable)}
-        ImeUiState.Processing->{timerHandler.removeCallbacks(timerRunnable);showStatusRow(getString(R.string.processing),true)}
-        is ImeUiState.Result->{timerHandler.removeCallbacks(timerRunnable);val t=normalizeOutputText(state.text);showStatusRow(t,false);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(t)}}
-        is ImeUiState.Refining->{timerHandler.removeCallbacks(timerRunnable);val t=normalizeOutputText(state.original);showStatusRow(t,true);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(t)}}
-        is ImeUiState.Refined->{timerHandler.removeCallbacks(timerRunnable);val o=normalizeOutputText(state.original);val r=normalizeOutputText(state.refined);showStatusRow(o,false);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(o)};commitTextCompat(r)}
-        is ImeUiState.Error->{timerHandler.removeCallbacks(timerRunnable);showStatusRow(state.message,false);candidateBar?.setOnClickListener{recordingController.dismiss()}}
-        is ImeUiState.CommandDetected->{timerHandler.removeCallbacks(timerRunnable);executeVoiceCommand(state.command);recordingController.dismiss()}
-        is ImeUiState.EditInstruction->{timerHandler.removeCallbacks(timerRunnable);showStatusRow(getString(R.string.editing_text),true);performEditWithLlm(state.instruction)}
-        ImeUiState.Editing->{}
-        is ImeUiState.EditResult->{timerHandler.removeCallbacks(timerRunnable);commitTextCompat(normalizeOutputText(state.revised));isEditMode=false;recordingController.dismiss()}
-    }}
-
-    private fun commitTextCompat(text:String):Boolean{
-        val connection=currentInputConnection?:run{Timber.w("ime_commit_failed reason=no_input_connection");return false}
-        val direct=runCatching{connection.commitText(text,1)}.onFailure{Timber.w(it,"ime_commitText_exception")}.getOrDefault(false)
-        if(direct)return true
-        Timber.w("ime_commitText_returned_false; trying composing fallback")
-        val composing=runCatching{connection.setComposingText(text,1)}.onFailure{Timber.w(it,"ime_setComposingText_exception")}.getOrDefault(false)
-        if(composing){runCatching{connection.finishComposingText()}.onFailure{Timber.w(it,"ime_finishComposingText_exception")};return true}
-        Timber.w("ime_text_commit_failed after fallback")
-        return false
-    }
-
+    private fun updateCandidateBar(state:ImeUiState){when(state){ImeUiState.Idle->{timerHandler.removeCallbacks(timerRunnable);if(translationEnabled){candidateBar?.visibility=View.VISIBLE;candidateStatusRow?.visibility=View.GONE;candidateOriginal?.visibility=View.GONE;candidateRefinedRow?.visibility=View.GONE}else if(!isEditMode)candidateBar?.visibility=View.GONE};ImeUiState.Recording->{showStatusRow(getString(R.string.recording),false);recordingStartTime=System.currentTimeMillis();timerHandler.post(timerRunnable)};ImeUiState.Processing->{timerHandler.removeCallbacks(timerRunnable);showStatusRow(getString(R.string.processing),true)};is ImeUiState.Result->{timerHandler.removeCallbacks(timerRunnable);val t=normalizeOutputText(state.text);showStatusRow(t,false);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(t)}};is ImeUiState.Refining->{timerHandler.removeCallbacks(timerRunnable);val t=normalizeOutputText(state.original);showStatusRow(t,true);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(t)}};is ImeUiState.Refined->{timerHandler.removeCallbacks(timerRunnable);val o=normalizeOutputText(state.original);val r=normalizeOutputText(state.refined);showStatusRow(o,false);copyStatusButton?.visibility=View.VISIBLE;copyStatusButton?.setOnClickListener{copyToClipboard(o)};commitTextCompat(r)};is ImeUiState.Error->{timerHandler.removeCallbacks(timerRunnable);showStatusRow(state.message,false);candidateBar?.setOnClickListener{recordingController.dismiss()}};is ImeUiState.CommandDetected->{timerHandler.removeCallbacks(timerRunnable);executeVoiceCommand(state.command);recordingController.dismiss()};is ImeUiState.EditInstruction->{timerHandler.removeCallbacks(timerRunnable);showStatusRow(getString(R.string.editing_text),true);performEditWithLlm(state.instruction)};ImeUiState.Editing->{};is ImeUiState.EditResult->{timerHandler.removeCallbacks(timerRunnable);commitTextCompat(normalizeOutputText(state.revised));isEditMode=false;recordingController.dismiss()}}}
+    private fun commitTextCompat(text:String):Boolean{val connection=currentInputConnection?:run{Timber.w("ime_commit_failed reason=no_input_connection");return false};val direct=runCatching{connection.commitText(text,1)}.onFailure{Timber.w(it,"ime_commitText_exception")}.getOrDefault(false);if(direct)return true;Timber.w("ime_commitText_returned_false; trying composing fallback");val composing=runCatching{connection.setComposingText(text,1)}.onFailure{Timber.w(it,"ime_setComposingText_exception")}.getOrDefault(false);if(!composing){Timber.w("ime_composing_fallback_failed");return false};val finished=runCatching{connection.finishComposingText()}.onFailure{Timber.w(it,"ime_finishComposingText_exception")}.getOrDefault(false);Timber.i("ime_composing_fallback_result finished=%s",finished);return composing}
     private fun normalizeOutputText(text:String):String{val c=if(translationEnabled)translationTargetLanguage==SttLanguage.Chinese else currentSttLanguage==SttLanguage.Auto||currentSttLanguage==SttLanguage.Chinese;return if(c)ChineseTextNormalizer.toMainlandSimplified(text,applicationContext)else text}
     private fun updateMicAppearance(state:ImeUiState){if(state==ImeUiState.Recording){micButton?.setBackgroundColor(getColor(R.color.mic_active));micButton?.let{startMicPulse(it)}}else{stopMicPulse();micButton?.setBackgroundColor(getColor(R.color.mic_idle))}}
     private fun showStatusRow(text:String,showProgress:Boolean){candidateBar?.visibility=View.VISIBLE;candidateStatusRow?.visibility=View.VISIBLE;candidateProgress?.visibility=if(showProgress)View.VISIBLE else View.GONE;candidateText?.text=text;candidateOriginal?.visibility=View.GONE;candidateRefinedRow?.visibility=View.GONE}
     private fun showDualRows(original:String,refined:String?){candidateBar?.visibility=View.VISIBLE;candidateStatusRow?.visibility=View.GONE;candidateOriginal?.visibility=View.VISIBLE;candidateOriginal?.text=original;candidateRefinedRow?.visibility=View.VISIBLE;if(refined!=null){refineProgress?.visibility=View.GONE;candidateRefined?.text=refined}else{refineProgress?.visibility=View.VISIBLE;candidateRefined?.text=getString(R.string.refining)}}
-
     private fun showQuickSettings(anchor:View){serviceScope.launch{val ro=preferencesManager.refinementEnabledFlow.first();val to=preferencesManager.translationEnabledFlow.first();val cl=preferencesManager.languageFlow.first();val dp=resources.displayMetrics.density;val c=createQuickSettingsContainer(dp);val p=PopupWindow(c,ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,true);addLanguageSelector(c,p,cl,dp);addRefinementToggle(c,p,ro,dp);addTranslationToggle(c,p,to,dp);addEditModeToggle(c,p,dp);p.showAtLocation(anchor,Gravity.BOTTOM or Gravity.END,(8*dp).toInt(),(64*dp).toInt())}}
     private fun showTonePopup(anchor:View){serviceScope.launch{val ct=preferencesManager.toneStyleFlow.first();val dp=resources.displayMetrics.density;val c=createQuickSettingsContainer(dp);val p=PopupWindow(c,ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,true);listOf(ToneStyle.Casual to getString(R.string.tone_popup_casual),ToneStyle.Professional to getString(R.string.tone_popup_professional),ToneStyle.Email to getString(R.string.tone_popup_email),ToneStyle.Note to getString(R.string.tone_popup_note),ToneStyle.Social to getString(R.string.tone_popup_social),ToneStyle.Custom to getString(R.string.tone_popup_custom)).forEach{(t,l)->c.addView(TextView(this@VoxPenIME).apply{text=l;textSize=14f;setTextColor(if(t==ct)resources.getColor(R.color.mic_idle,null)else resources.getColor(R.color.key_text,null));val q=(8*dp).toInt();setPadding(q,q,q,q);setOnClickListener{effectiveTone=t;updateToneButton();serviceScope.launch{preferencesManager.setToneStyle(t)};p.dismiss()}})};p.showAtLocation(anchor,Gravity.BOTTOM or Gravity.END,(8*dp).toInt(),(64*dp).toInt())}}
     private fun addLanguageSelector(c:LinearLayout,p:PopupWindow,cl:SttLanguage,dp:Float){listOf(SttLanguage.Auto to "${SttLanguage.Auto.emoji} ${getString(R.string.lang_auto)}",SttLanguage.Chinese to "${SttLanguage.Chinese.emoji} ${getString(R.string.lang_zh)}",SttLanguage.English to "${SttLanguage.English.emoji} ${getString(R.string.lang_en)}",SttLanguage.Japanese to "${SttLanguage.Japanese.emoji} ${getString(R.string.lang_ja)}").forEach{(l,s)->c.addView(TextView(this).apply{text=s;textSize=14f;setTextColor(if(l==cl)resources.getColor(R.color.mic_idle,null)else resources.getColor(R.color.key_text,null));val q=(8*dp).toInt();setPadding(q,q,q,q);setOnClickListener{serviceScope.launch{preferencesManager.setLanguage(l)};p.dismiss()}})};c.addView(View(this).apply{layoutParams=LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,(1*dp).toInt()).apply{topMargin=(4*dp).toInt();bottomMargin=(4*dp).toInt()};setBackgroundColor(0x33FFFFFF)})}
-    private fun executeVoiceCommand(c:VoiceCommand){when(c){VoiceCommand.Enter->sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_ENTER);VoiceCommand.Backspace->sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_DEL);VoiceCommand.Newline->commitTextCompat("\n");VoiceCommand.Space->commitTextCompat(" ");VoiceCommand.Undo->currentInputConnection?.performContextMenuAction(android.R.id.undo);VoiceCommand.SelectAll->currentInputConnection?.performContextMenuAction(android.R.id.selectAll);VoiceCommand.Copy->currentInputConnection?.performContextMenuAction(android.R.id.copy);VoiceCommand.Paste->currentInputConnection?.performContextMenuAction(android.R.id.paste);VoiceCommand.Cut->currentInputConnection?.performContextMenuAction(android.R.id.cut);VoiceCommand.ClearAll->{currentInputConnection?.performContextMenuAction(android.R.id.selectAll);currentInputConnection?.commitText("",1)}}}
+    private fun executeVoiceCommand(c:VoiceCommand){when(c){VoiceCommand.Enter->sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_ENTER);VoiceCommand.Backspace->sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_DEL);VoiceCommand.Newline->currentInputConnection?.commitText("\n",1);VoiceCommand.Space->currentInputConnection?.commitText(" ",1);VoiceCommand.Undo->currentInputConnection?.performContextMenuAction(android.R.id.undo);VoiceCommand.SelectAll->currentInputConnection?.performContextMenuAction(android.R.id.selectAll);VoiceCommand.Copy->currentInputConnection?.performContextMenuAction(android.R.id.copy);VoiceCommand.Paste->currentInputConnection?.performContextMenuAction(android.R.id.paste);VoiceCommand.Cut->currentInputConnection?.performContextMenuAction(android.R.id.cut);VoiceCommand.ClearAll->{currentInputConnection?.performContextMenuAction(android.R.id.selectAll);currentInputConnection?.commitText("",1)}}}
     private fun copyToClipboard(t:String){getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("VoxPen",t));android.widget.Toast.makeText(this,R.string.transcription_copied,android.widget.Toast.LENGTH_SHORT).show()}
     private fun performEditWithLlm(i:String){val s=currentInputConnection?.getSelectedText(0)?.toString();if(s.isNullOrBlank()){showStatusRow("⚠️ No text selected",false);candidateBar?.postDelayed({recordingController.dismiss()},2000);return};serviceScope.launch{val lp=preferencesManager.llmProviderFlow.first();val k=apiKeyManager.getApiKey(lp)?:apiKeyManager.getGroqApiKey();if(k.isNullOrBlank()&&lp!=com.voxpen.app.data.model.LlmProvider.Custom){showStatusRow("API key not configured",false);return@launch};val l=preferencesManager.languageFlow.first();val m=if(lp==com.voxpen.app.data.model.LlmProvider.Custom)preferencesManager.customLlmModelFlow.first().ifBlank{preferencesManager.llmModelFlow.first()}else preferencesManager.llmModelFlow.first();val b=if(lp==com.voxpen.app.data.model.LlmProvider.Custom)apiKeyManager.getCustomBaseUrl()else null;editTextUseCase(s,i,l,k.orEmpty(),m,lp,b).fold(onSuccess={r->commitTextCompat(normalizeOutputText(r));isEditMode=false;recordingController.dismiss()},onFailure={e->showStatusRow("Edit failed: ${e.message}",false)})}}
     private fun addEditModeToggle(c:LinearLayout,p:PopupWindow,dp:Float){c.addView(TextView(this).apply{text=if(isEditMode)getString(R.string.quick_edit_mode_on)else getString(R.string.quick_edit_mode_off);textSize=14f;setTextColor(resources.getColor(R.color.key_text,null));val q=(8*dp).toInt();setPadding(q,q,q,q);setOnClickListener{isEditMode=!isEditMode;updateEditModeIndicator();p.dismiss()}})}
