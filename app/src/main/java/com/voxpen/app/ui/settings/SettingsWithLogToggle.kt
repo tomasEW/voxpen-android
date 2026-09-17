@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.voxpen.app.BuildConfig
 
 @Composable
 fun SettingsWithLogToggle(
@@ -42,6 +43,13 @@ fun SettingsWithLogToggle(
                 onCheckedChange = viewModel::setDownloadLoggingEnabled,
             )
         }
+
+        Text(
+            text = "VoxPen ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         SettingsScreenContent(
             onNavigateBack = onNavigateBack,
