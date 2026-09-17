@@ -75,8 +75,6 @@ class RecordingController(
             _uiState.value = ImeUiState.Error("Daily limit reached ($remaining remaining). Upgrade to Pro for unlimited use.")
             return
         }
-        // Starting a new recording invalidates any previous candidate/result.
-        // This prevents an old Refined state from surviving into a new editor session.
         _uiState.value = ImeUiState.Idle
         startRecording()
         _uiState.value = ImeUiState.Recording
@@ -90,6 +88,18 @@ class RecordingController(
             ImeUiState.Editing,
             is ImeUiState.EditInstruction -> Unit
             else -> _uiState.value = ImeUiState.Idle
+        }
+    }
+
+    /**
+     * A Refined state is an event as well as display data: the IME commits refined text when it sees it.
+     * StateFlow replays its latest value to a newly-created input view, so leaving Refined as the current
+     * state would commit the same text again after switching keyboards. After the first successful commit,
+     * retain only the harmless original-text Result for display/copy purposes.
+     */
+    fun consumeRefinedResult(originalText: String) {
+        if (_uiState.value is ImeUiState.Refined) {
+            _uiState.value = ImeUiState.Result(originalText)
         }
     }
 
